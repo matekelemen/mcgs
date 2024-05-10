@@ -9,8 +9,7 @@
 #include <algorithm> // std::min, std::max
 #include <numeric> // std::iota
 #include <random> // std::mt19937, std::uniform_int_distribution
-
-#include <iostream>
+#include <iostream> // std::cout, std::cerr
 
 
 namespace mcgs {
@@ -81,13 +80,46 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
           const ColoringSettings settings)
 {
     // Cheap sanity checks
-    if (rMatrix.rowCount < 0)                    return MCGS_FAILURE;
-    if (rMatrix.nonzeroCount < 0)                return MCGS_FAILURE;
-    if (!rMatrix.pRowExtents)                    return MCGS_FAILURE;
-    if (!rMatrix.pColumnIndices)                 return MCGS_FAILURE;
-    if (!rMatrix.pNonzeros)                      return MCGS_FAILURE;
-    if (!pColors)                                return MCGS_FAILURE;
-    if (rMatrix.rowCount != rMatrix.columnCount) return MCGS_FAILURE;
+    if (rMatrix.rowCount < 0) {
+        if (1 < settings.verbosity) std::cerr << "Error: invalid number of rows " << rMatrix.rowCount << "\n";
+        return MCGS_FAILURE;
+    }
+
+    if (rMatrix.columnCount < 0) {
+        if (1 < settings.verbosity) std::cerr << "Error: invalid number of columns " << rMatrix.columnCount << "\n";
+        return MCGS_FAILURE;
+    }
+
+    if (rMatrix.nonzeroCount < 0) {
+        if (1 < settings.verbosity) std::cerr << "Error: invalid number of nonzeros " << rMatrix.nonzeroCount << "\n";
+        return MCGS_FAILURE;
+    }
+
+    if (!rMatrix.pRowExtents) {
+        if (1 < settings.verbosity) std::cerr << "Error: missing row data\n";
+        return MCGS_FAILURE;
+    }
+
+    if (!rMatrix.pColumnIndices) {
+        if (1 < settings.verbosity) std::cerr << "Error: missing column data\n";
+        return MCGS_FAILURE;
+    }
+
+    if (!rMatrix.pNonzeros) {
+        if (1 < settings.verbosity) std::cerr << "Error: missing nonzeros\n";
+        return MCGS_FAILURE;
+    }
+
+    if (!pColors) {
+        if (1 < settings.verbosity) std::cerr << "Error: missing output array\n";
+        return MCGS_FAILURE;
+    }
+
+    if (rMatrix.rowCount != rMatrix.columnCount) {
+        if (1 < settings.verbosity) std::cerr << "Error: expecting a square matrix, but got "
+                                              << rMatrix.rowCount << "x" << rMatrix.columnCount << "\n";
+        return MCGS_FAILURE;
+    }
 
     // Collect all edges of the graph
     // (symmetric version of the input matrix)
@@ -104,7 +136,11 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
         maxDegree = std::max(maxDegree, degree);
     } // for iRow in range(rowCount)
 
-    std::cout << "max vertex degree: " << maxDegree << "\nmin vertex degree: " << minDegree << std::endl;
+    if (2 <= settings.verbosity) {
+        std::cout << "max vertex degree: " << maxDegree
+                  << "\nmin vertex degree: " << minDegree
+                  << "\n";
+    }
 
     // Allocate the palette of every vertex to the max possible (maximum vertex degree).
     // An extra entry at the end of each palette indicates the palette's actual size.
@@ -135,7 +171,10 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
     std::size_t iterationCount = 0ul;
 
     while (!toVisit.empty()) {
-        std::cout << "coloring iteration " << iterationCount++ << " (" << toVisit.size() << " left to color)" << std::endl;
+        if (2 <= settings.verbosity) {
+            std::cout << "coloring iteration " << iterationCount++ << " (" << toVisit.size() << " left to color)\n";
+        }
+
         // Assign random colors to each remaining vertex from their palette.
         #pragma omp parallel for firstprivate(randomGenerator)
         for (std::size_t iVisit=0ul; iVisit<toVisit.size(); ++iVisit) {
@@ -177,11 +216,11 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
                         conflict = true;
                     }
                 }
-            } // for itRow in range(itRowBegin, itRowEnd)
+            } // for iNeighbor in neighbors[iVertex]
 
             // If the current vertex has a valid color, remove it
-            // from the remaining set and forbid its neighbors
-            // and remove its color from the palettes of its neighbors.
+            // from the remaining set and remove its color from the
+            // palettes of its neighbors.
             if (colored) {
                 toErase.push_back(iVertex);
             }

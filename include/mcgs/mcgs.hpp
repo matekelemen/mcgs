@@ -9,6 +9,7 @@ namespace mcgs {
 
 struct ColoringSettings
 {
+    unsigned short verbosity;
 };
 
 
