@@ -1,6 +1,3 @@
-// --- External Includes ---
-#include <omp.h>
-
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::GaussSeidel
 
@@ -92,13 +89,9 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
     if (!pColors)                                return MCGS_FAILURE;
     if (rMatrix.rowCount != rMatrix.columnCount) return MCGS_FAILURE;
 
-    const auto threadCount = omp_get_num_threads();
-
     // Collect all edges of the graph
     // (symmetric version of the input matrix)
-    std::cout << "collecting neighbors ..." << std::endl;
     std::vector<NeighborSet<TIndex>> neighbors = collectNeighbors(rMatrix);
-    std::cout << "... done collecting neighbors" << std::endl;
 
     // Find the minimum and maximum vertex degrees.
     TIndex minDegree = std::numeric_limits<TIndex>::max();
