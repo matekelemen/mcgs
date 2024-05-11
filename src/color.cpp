@@ -181,7 +181,7 @@ void removeFromPalette(const TColor color,
 
 
 template <class TIndex, class TValue, class TColor>
-int Color(TColor* pColors,
+int color(TColor* pColors,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const ColorSettings settings)
 {
@@ -390,22 +390,22 @@ int Color(TColor* pColors,
 }
 
 
-#define MCGS_INSTANTIATE_COLORING(TIndex, TValue, TColor)           \
-    template int Color(TColor* pColors,                             \
+#define MCGS_INSTANTIATE_COLOR(TIndex, TValue, TColor)              \
+    template int color(TColor* pColors,                             \
                        const CSRAdaptor<TIndex,TValue>& rMatrix,    \
                        const ColorSettings settings);
 
-MCGS_INSTANTIATE_COLORING(int, double, unsigned);
+MCGS_INSTANTIATE_COLOR(int, double, unsigned);
 
-MCGS_INSTANTIATE_COLORING(long, double, unsigned);
+MCGS_INSTANTIATE_COLOR(long, double, unsigned);
 
-MCGS_INSTANTIATE_COLORING(unsigned, double, unsigned);
+MCGS_INSTANTIATE_COLOR(unsigned, double, unsigned);
 
-MCGS_INSTANTIATE_COLORING(std::size_t, double, unsigned);
+MCGS_INSTANTIATE_COLOR(std::size_t, double, unsigned);
 
-MCGS_INSTANTIATE_COLORING(std::size_t, double, std::size_t);
+MCGS_INSTANTIATE_COLOR(std::size_t, double, std::size_t);
 
-#undef MCGS_INSTANTIATE_COLORING
+#undef MCGS_INSTANTIATE_COLOR
 
 
 } // namespace mcgs

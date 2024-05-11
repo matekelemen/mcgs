@@ -12,8 +12,10 @@
 !include/mcgs/mcgs.hpp
 
 !src
-!src/Color.cpp
-!src/Solve.cpp
+!src/color.cpp
+!src/partition.hpp
+!src/partition.cpp
+!src/solve.cpp
 
 !test
 !test/main.cpp

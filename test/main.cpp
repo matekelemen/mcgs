@@ -76,7 +76,7 @@ int main(int argc, const char* const * argv)
         mcgs::ColorSettings settings;
         settings.verbosity = 3;
         settings.shrinkingFactor = 5;
-        mcgs::Color(colors.data(), adaptor, settings);
+        mcgs::color(colors.data(), adaptor, settings);
     }
 
     // Check the coloring's correctness
@@ -120,8 +120,16 @@ int main(int argc, const char* const * argv)
     // Relax
     std::vector<mcgs::TestCSRMatrix::Value> solution(adaptor.columnCount, 0.0);
     {
+        auto* pPartition = mcgs::makePartition(colors.data(), adaptor.columnCount);
+        if (!pPartition) {
+            std::cerr << "partitioning failed\n";
+            return MCGS_FAILURE;
+        }
+
         mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
-        mcgs::Solve(solution.data(), adaptor, pVector->data(), colors.data(), settings);
+        mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings);
+
+        mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pPartition);
     }
 
     return MCGS_SUCCESS;

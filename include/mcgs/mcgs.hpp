@@ -56,17 +56,30 @@ struct CSRAdaptor
 };
 
 
+template <class TIndex, class TColor>
+struct Partition;
+
+
 template <class TIndex, class TValue, class TColor>
-int Color(TColor* pColors,
+int color(TColor* pColors,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const ColorSettings settings);
 
 
+template <class TIndex, class TColor>
+[[nodiscard]] Partition<TIndex,TColor>* makePartition(const TColor* pColors,
+                                                      const TIndex columnCount);
+
+
+template <class TIndex, class TColor>
+void destroyPartition(Partition<TIndex,TColor>* pPartition);
+
+
 template <class TIndex, class TValue, class TColor>
-int Solve(TValue* pSolution,
+int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
-          const TColor* pColors,
+          const Partition<TIndex,TColor>* pPartition,
           const SolveSettings<TIndex,TValue> settings);
 
 
