@@ -14,41 +14,41 @@
 
 int main(int argc, const char* const * argv)
 {
-    for (unsigned i_arg=1; i_arg<argc; ++i_arg) {
-        std::filesystem::path matrixPath = argv[i_arg];
-        mcgs::TestCSRMatrix matrix;
+    if (argc != 2) {
+        std::cerr << "Expecting exactly 1 argument, got " << argc << "\n";
+        return MCGS_FAILURE;
+    }
 
-        {
-            std::ifstream matrixFile(matrixPath);
-            matrix = mcgs::parseMatrixMarket(matrixFile);
-        }
+    mcgs::TestCSRMatrix matrix;
 
-        mcgs::CSRMatrix<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> adaptor;
-        adaptor.rowCount = matrix.rowCount;
-        adaptor.columnCount = matrix.columnCount;
-        adaptor.nonzeroCount = matrix.nonzeroCount;
-        adaptor.pRowExtents = matrix.rowExtents.data();
-        adaptor.pColumnIndices = matrix.columnIndices.data();
-        adaptor.pNonzeros = matrix.nonzeros.data();
-        std::cout << std::endl;
+    {
+        const std::filesystem::path matrixPath = argv[1];
+        std::ifstream matrixFile(matrixPath);
+        matrix = mcgs::parseMatrixMarket(matrixFile);
+    }
 
-        std::vector<unsigned> colors(matrix.columnCount, std::numeric_limits<unsigned>::max());
-        mcgs::ColoringSettings settings;
-        settings.verbosity = 1;
-        settings.shrinkingFactor = 15;
-        mcgs::Color(adaptor, colors.data(), settings);
+    mcgs::CSRMatrix<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> adaptor;
+    adaptor.rowCount = matrix.rowCount;
+    adaptor.columnCount = matrix.columnCount;
+    adaptor.nonzeroCount = matrix.nonzeroCount;
+    adaptor.pRowExtents = matrix.rowExtents.data();
+    adaptor.pColumnIndices = matrix.columnIndices.data();
+    adaptor.pNonzeros = matrix.nonzeros.data();
 
-        if (matrix.columnCount < 40) {
-            std::cout << "colors: ";
-            for (auto c : colors) std::cout << c << " ";
-            std::cout << std::endl;
-        }
+    std::vector<unsigned> colors(matrix.columnCount, std::numeric_limits<unsigned>::max());
+    mcgs::ColoringSettings settings;
+    settings.verbosity = 3;
+    settings.shrinkingFactor = 5;
+    mcgs::Color(adaptor, colors.data(), settings);
 
+    // Check the correctness of the coloring
+    {
         std::unordered_map<
             mcgs::TestCSRMatrix::Index,
             std::vector<mcgs::TestCSRMatrix::Index>
         > conflicts;
         std::unordered_set<unsigned> palette;
+
         for (std::size_t iRow=0; iRow<matrix.columnCount; ++iRow) {
             const auto currentColor = colors[iRow];
             palette.insert(currentColor);
@@ -67,13 +67,15 @@ int main(int argc, const char* const * argv)
         }
 
         std::cout << "palette size: " << palette.size() << std::endl;
+        if (!conflicts.empty()) {
+            for (const auto& [iRow, rConflicts] : conflicts) {
+                std::cerr << iRow << " is in conflict with ";
+                for (auto iColumn : rConflicts) std::cerr << iColumn << " ";
+                std::cerr << std::endl;
+            }
+            return MCGS_FAILURE;
+        } // if conflicts
+    } // destroy conflicts, palette
 
-        for (const auto& [iRow, rConflicts] : conflicts) {
-            std::cout << iRow << " is in conflict with ";
-            for (auto iColumn : rConflicts) std::cout << iColumn << " ";
-            std::cout << std::endl;
-        }
-    }
-
-    return 0;
+    return MCGS_SUCCESS;
 }
