@@ -19,15 +19,19 @@ int main(int argc, const char* const * argv)
         return MCGS_FAILURE;
     }
 
+    // Read the input matrix
     mcgs::TestCSRMatrix matrix;
-
     {
         const std::filesystem::path matrixPath = argv[1];
         std::ifstream matrixFile(matrixPath);
         matrix = mcgs::parseMatrixMarket(matrixFile);
     }
 
-    mcgs::CSRMatrix<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> adaptor;
+    // Construct a sparse CSR adaptor
+    mcgs::CSRAdaptor<
+        mcgs::TestCSRMatrix::Index,
+        mcgs::TestCSRMatrix::Value
+    > adaptor;
     adaptor.rowCount = matrix.rowCount;
     adaptor.columnCount = matrix.columnCount;
     adaptor.nonzeroCount = matrix.nonzeroCount;
@@ -35,13 +39,14 @@ int main(int argc, const char* const * argv)
     adaptor.pColumnIndices = matrix.columnIndices.data();
     adaptor.pNonzeros = matrix.nonzeros.data();
 
+    // Allocate, initialize, define settings and color
     std::vector<unsigned> colors(matrix.columnCount, std::numeric_limits<unsigned>::max());
-    mcgs::ColoringSettings settings;
+    mcgs::ColorSettings settings;
     settings.verbosity = 3;
-    settings.shrinkingFactor = 5;
+    //settings.shrinkingFactor = 5;
     mcgs::Color(adaptor, colors.data(), settings);
 
-    // Check the correctness of the coloring
+    // Check the coloring's correctness
     {
         std::unordered_map<
             mcgs::TestCSRMatrix::Index,

@@ -53,7 +53,7 @@ using NeighborSet = std::unordered_set<TIndex>;
 
 /// @brief Collect all edges of an undirected graph.
 template <class TIndex, class TValue>
-std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRMatrix<TIndex,TValue>& rMatrix)
+std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue>& rMatrix)
 {
     std::vector<NeighborSet<TIndex>> neighbors(rMatrix.columnCount);
     std::vector<omp_lock_t> locks;
@@ -93,10 +93,97 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRMatrix<TIndex,TValue>
 }
 
 
+template <class TIndex, class TColor>
+bool isColored(const TIndex iVertex,
+               const NeighborSet<TIndex>* pNeighborMap,
+               const TColor* pColors,
+               const std::vector<TIndex>& rUncolored)
+{
+    const TColor currentColor = pColors[iVertex];
+
+    // If there's only one conflict, keep the coloring of the vertex with the higher index.
+    bool conflict = false;
+    bool colored = true;
+
+    for (const TIndex iNeighbor : pNeighborMap[iVertex]) {
+        const TColor neighborColor = pColors[iNeighbor];
+        if (neighborColor == currentColor) {
+            if (conflict) {
+                // Multiple conflicts => give up on this vertex.
+                colored = false;
+                break;
+            } else if (iVertex < iNeighbor) {
+                // This is the first conflict, but the current vertex
+                // has a lower index than the neighbor it's in conflict with
+                // => give up on this vertex.
+                conflict = true;
+                colored = false;
+                break;
+            } else {
+                const auto [itEqualBegin, itEqualEnd] = std::equal_range(rUncolored.begin(),
+                                                                         rUncolored.end(),
+                                                                         iNeighbor);
+                if (itEqualBegin == itEqualEnd) {
+                    // Although the current vertex would win a tiebreaker against
+                    // its neighbor it's in conflict with, the neighbor's color is
+                    // already set and cannot be changed => give up on this vertex.
+                    conflict = true;
+                    colored = false;
+                    break;
+                } else {
+                    // This is the first conflict and the current vertex
+                    // has a higher index than its conflicting neighbor,
+                    // who is still waiting to be colored, winning the tiebreaker
+                    // => hang on to this vertex.
+                    conflict = true;
+                }
+            }
+        }
+    } // for iNeighbor in neighbors[iVertex]
+
+    return colored;
+}
+
+
+template <class TIndex, class TColor>
+bool extendPalette(TColor* pPaletteBegin,
+                   const TIndex maxVertexDegree)
+{
+    TColor& rPaletteSize = pPaletteBegin[maxVertexDegree];
+
+    if (rPaletteSize < maxVertexDegree) {
+        // Find the largest color the vertex ever had, and add
+        // a color one greater to its palette.
+        const TColor newColor = (*std::max_element(
+            pPaletteBegin,
+            pPaletteBegin + maxVertexDegree
+        )) + 1;
+        pPaletteBegin[rPaletteSize++] = newColor;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+template <class TIndex, class TColor>
+void removeFromPalette(const TColor color,
+                       TColor* pPaletteBegin,
+                       const TIndex maxVertexDegree)
+{
+    TColor& rPaletteSize = pPaletteBegin[maxVertexDegree];
+    const auto itPaletteEnd = pPaletteBegin + rPaletteSize;
+
+    if (std::remove(pPaletteBegin, itPaletteEnd, color) != itPaletteEnd) {
+        --rPaletteSize;
+    }
+}
+
+
 template <class TIndex, class TValue, class TColor>
-int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
+int Color(const CSRAdaptor<TIndex,TValue>& rMatrix,
           TColor* pColors,
-          const ColoringSettings settings)
+          const ColorSettings settings)
 {
     // Cheap sanity checks
     if (rMatrix.rowCount < 0) {
@@ -187,18 +274,18 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
     } // for itPaletteBegin
 
     // Track vertices that need to be colored.
-    std::vector<TIndex> toVisit;
-    toVisit.reserve(rMatrix.columnCount);
+    std::vector<TIndex> uncolored;
+    uncolored.reserve(rMatrix.columnCount);
     for (TIndex iVertex=0ul; iVertex<rMatrix.columnCount; ++iVertex) {
-        toVisit.push_back(iVertex);
+        uncolored.push_back(iVertex);
     }
 
     // Keep coloring until all vertices are colored.
     using UniformDistribution = std::uniform_int_distribution<TColor>;
     std::size_t iterationCount = 0ul;
 
-    while (!toVisit.empty()) {
-        const std::size_t visitCount = toVisit.size();
+    while (!uncolored.empty()) {
+        const std::size_t visitCount = uncolored.size();
 
         if (3 <= settings.verbosity) {
             std::cout << "coloring iteration " << iterationCount++
@@ -212,8 +299,8 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
             std::mt19937 randomGenerator(omp_get_thread_num());
 
             #pragma omp for
-            for (std::size_t iVisit=0ul; iVisit<toVisit.size(); ++iVisit) {
-                const TIndex iVertex = toVisit[iVisit];
+            for (std::size_t iVisit=0ul; iVisit<uncolored.size(); ++iVisit) {
+                const TIndex iVertex = uncolored[iVisit];
                 const auto itPaletteBegin = palettes.begin() + iVertex * (maxDegree + 1);
                 const TColor paletteSize = itPaletteBegin[maxDegree];
                 const TColor colorIndex = UniformDistribution(TColor(0), paletteSize)(randomGenerator);
@@ -223,7 +310,7 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
 
         // Check for conflicts and remove colored vertices.
         std::unordered_map<TIndex,omp_lock_t> locks;
-        for (auto iVertex : toVisit) {
+        for (auto iVertex : uncolored) {
             omp_init_lock(&locks.emplace(iVertex, omp_lock_t()).first->second);
         }
 
@@ -232,47 +319,9 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
             std::vector<TIndex> verticesToErase;
 
             #pragma omp for
-            for (std::size_t iVisit=0; iVisit<toVisit.size(); ++iVisit) {
-                const TIndex iVertex = toVisit[iVisit];
-                const TColor currentColor = pColors[iVertex];
-
-                // If there's only one conflict, keep the coloring of the vertex with the higher index.
-                bool conflict = false;
-                bool colored = true;
-
-                for (const TIndex iNeighbor : neighbors[iVertex]) {
-                    const TColor neighborColor = pColors[iNeighbor];
-                    if (neighborColor == currentColor) {
-                        if (conflict) {
-                            // Multiple conflicts => give up on this vertex.
-                            colored = false;
-                            break;
-                        } else if (iVertex < iNeighbor) {
-                            // This is the first conflict, but the current vertex
-                            // has a lower index than the neighbor it's in conflict with
-                            // => give up on this vertex.
-                            conflict = true;
-                            colored = false;
-                            break;
-                        } else {
-                            const auto [itEqualBegin, itEqualEnd] = std::equal_range(toVisit.begin(), toVisit.end(), iNeighbor);
-                            if (itEqualBegin == itEqualEnd) {
-                                // Although the current vertex would win a tiebreaker against
-                                // its neighbor it's in conflict with, the neighbor's color is
-                                // already set and cannot be changed => give up on this vertex.
-                                conflict = true;
-                                colored = false;
-                                break;
-                            } else {
-                                // This is the first conflict and the current vertex
-                                // has a higher index than its conflicting neighbor,
-                                // who is still waiting to be colored, winning the tiebreaker
-                                // => hang on to this vertex.
-                                conflict = true;
-                            }
-                        }
-                    }
-                } // for iNeighbor in neighbors[iVertex]
+            for (std::size_t iVisit=0; iVisit<uncolored.size(); ++iVisit) {
+                const TIndex iVertex = uncolored[iVisit];
+                const bool colored = isColored(iVertex, neighbors.data(), pColors, uncolored);
 
                 // If the current vertex has a valid color, remove it
                 // from the remaining set and remove its color from the
@@ -280,15 +329,7 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
                 if (colored) {
                     verticesToErase.push_back(iVertex);
                 }
-            } // for iVertex in toVisit
-
-            //#pragma omp critical
-            //{
-            //    if (verticesToErase.size()) {
-            //        std::cout << "erase "; for (auto i : verticesToErase) {std::cout << i << " ";}
-            //        std::cout << std::endl;
-            //    }
-            //}
+            } // for iVertex in uncolored
 
             #pragma omp for
             for (std::size_t iEntry=0; iEntry<verticesToErase.size(); ++iEntry) {
@@ -297,28 +338,11 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
                     const auto itNeighbor = locks.find(iNeighbor);
 
                     if (itNeighbor != locks.end()) {
-                        omp_set_lock(&itNeighbor->second);
-
                         const auto itPaletteBegin = palettes.begin() + iNeighbor * (maxDegree + 1);
-                        TColor& rPaletteSize = itPaletteBegin[maxDegree];
-                        const auto itPaletteEnd = itPaletteBegin + rPaletteSize;
 
-                        if (std::remove(itPaletteBegin, itPaletteEnd, pColors[iVertex]) != itPaletteEnd) {
-                            --rPaletteSize;
-                        }
-
-                        if (!rPaletteSize) {
-                            // The neighbor's palette ran out of colors => find the
-                            // highest color it ever had and add one higher to the
-                            // empty palette.
-                            const TColor newColor = (*std::max_element(
-                                itPaletteBegin,
-                                itPaletteBegin + maxDegree
-                            )) + 1;
-                            *itPaletteBegin = newColor;
-                            rPaletteSize = 1;
-                        }
-
+                        omp_set_lock(&itNeighbor->second);
+                        removeFromPalette(pColors[iVertex], &*itPaletteBegin, maxDegree);
+                        if (!itPaletteBegin[maxDegree]) extendPalette(&*itPaletteBegin, maxDegree);
                         omp_unset_lock(&itNeighbor->second);
                     } // if itNeighbor
                 } // for iNeighbor in neighbors[iVertex]
@@ -330,10 +354,10 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
                 #pragma omp critical
                 {
                     std::vector<TIndex> tmp;
-                    std::set_difference(toVisit.begin(), toVisit.end(),
+                    std::set_difference(uncolored.begin(), uncolored.end(),
                                         verticesToErase.begin(), verticesToErase.end(),
                                         std::back_inserter(tmp));
-                    toVisit.swap(tmp);
+                    uncolored.swap(tmp);
                 }
             }
 
@@ -343,42 +367,33 @@ int Color(const CSRMatrix<TIndex,TValue>& rMatrix,
             omp_destroy_lock(&rLock);
         }
 
-        if (toVisit.size() == visitCount) {
+        if (uncolored.size() == visitCount) {
             // Failed to color any vertices => extend the palette of some random vertices
             bool success = false;
 
-            for (TIndex iVertex : toVisit) {
+            for (TIndex iVertex : uncolored) {
                 const auto itPaletteBegin = palettes.begin() + iVertex * (maxDegree + 1);
-                TColor& rPaletteSize = itPaletteBegin[maxDegree];
-
-                if (rPaletteSize < maxDegree) {
-                    // Find the largest color the vertex ever had, and add
-                    // a color one greater to its palette.
-                    const TColor newColor = (*std::max_element(
-                        itPaletteBegin,
-                        itPaletteBegin + maxDegree
-                    )) + 1;
-                    itPaletteBegin[rPaletteSize++] = newColor;
+                if (extendPalette(&*itPaletteBegin, maxDegree)) {
                     success = true;
                     break;
                 }
             }
 
             if (!success) {
-                if (1 <= settings.verbosity) std::cerr << "Error: all remaining nodes' palettes are full\n";
+                if (1 <= settings.verbosity) std::cerr << "Error: all remaining vertices' palettes are full\n";
                 return MCGS_FAILURE;
             }
-        } // if toVisit.size() == visitCount
-    } // while toVisit
+        } // if uncolored.size() == visitCount
+    } // while uncolored
 
     return MCGS_SUCCESS;
 }
 
 
-#define MCGS_INSTANTIATE_COLORING(TIndex, TValue, TColor)       \
-    template int Color(const CSRMatrix<TIndex,TValue>& rMatrix, \
-                       TColor* pColors,                         \
-                       const ColoringSettings settings);
+#define MCGS_INSTANTIATE_COLORING(TIndex, TValue, TColor)        \
+    template int Color(const CSRAdaptor<TIndex,TValue>& rMatrix, \
+                       TColor* pColors,                          \
+                       const ColorSettings settings);
 
 MCGS_INSTANTIATE_COLORING(int, double, unsigned);
 
