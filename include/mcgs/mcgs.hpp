@@ -9,7 +9,14 @@ namespace mcgs {
 
 struct ColoringSettings
 {
+    int shrinkingFactor;
+
     unsigned short verbosity;
+
+    ColoringSettings() noexcept
+        : shrinkingFactor(-1),
+          verbosity(0)
+    {}
 };
 
 

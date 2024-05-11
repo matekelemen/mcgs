@@ -165,8 +165,8 @@ bool parseSparseDataLine(std::istream& r_stream, TestCSRMatrix& r_matrix)
     // Record entry in the output matrix
     r_matrix.columnIndices.push_back(i_column);
     r_matrix.nonzeros.push_back(value);
-    if (r_matrix.rowExtents.size() <= i_row + 1) {
-        for (auto i=r_matrix.rowExtents.size(); i<=i_row + 1; ++i) r_matrix.rowExtents.push_back(r_matrix.nonzeros.size());
+    if (r_matrix.rowExtents.size() < i_row + 1) {
+        for (auto i=r_matrix.rowExtents.size(); i<i_row + 1; ++i) r_matrix.rowExtents.push_back(r_matrix.nonzeros.size());
     }
 
     return true;
