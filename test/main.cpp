@@ -1,6 +1,6 @@
 // --- Internal Includes ---
-#include "mcgs/mcgs.hpp"
-#include "parseMatrixMarket.hpp"
+#include "mcgs/mcgs.hpp" // mcgs::Color, mcgs::Solve, mcgs::CSRAdaptor
+#include "parseMatrixMarket.hpp" // mcgs::parseMatrixMarket
 
 // --- STL Includes ---
 #include <filesystem> // std::filesystem::path
@@ -10,21 +10,51 @@
 #include <unordered_map> // std::unordered_map
 #include <unordered_set> // std::unordered_set
 #include <limits> // std::numeric_limits::max
+#include <array> // std::array
 
 
 int main(int argc, const char* const * argv)
 {
-    if (argc != 2) {
-        std::cerr << "Expecting exactly 1 argument, got " << argc << "\n";
+    if (argc != 3) {
+        std::cerr << "Expecting exactly 2 arguments, but got " << argc << "\n";
         return MCGS_FAILURE;
     }
 
-    // Read the input matrix
-    mcgs::TestCSRMatrix matrix;
-    {
-        const std::filesystem::path matrixPath = argv[1];
-        std::ifstream matrixFile(matrixPath);
-        matrix = mcgs::parseMatrixMarket(matrixFile);
+    // Read the input matrix and vector
+    using Input = std::variant<mcgs::TestCSRMatrix,mcgs::TestDenseVector>;
+    std::array<Input,2> input;
+
+    for (std::size_t iArg=0ul; iArg<2ul; ++iArg) {
+        const std::filesystem::path path = argv[iArg + 1];
+        std::ifstream file(path);
+        input[iArg] = mcgs::parseMatrixMarket(file);
+    }
+
+    const mcgs::TestCSRMatrix* pMatrix = nullptr;
+    const mcgs::TestDenseVector* pVector = nullptr;
+    for (const auto& rInput : input) {
+        std::visit([&pMatrix, &pVector](const auto& rVariant){
+            using Type = std::remove_const_t<std::remove_reference_t<decltype(rVariant)>>;
+            if constexpr (std::is_same_v<Type,mcgs::TestCSRMatrix>) {
+                pMatrix = &rVariant;
+            } else if constexpr (std::is_same_v<Type,mcgs::TestDenseVector>) {
+                pVector = &rVariant;
+            } else {
+                std::cerr << "invalid input\n";
+                return MCGS_FAILURE;
+            }
+        },
+        rInput);
+    }
+
+    if (!pMatrix) {
+        std::cerr << "missing input matrix\n";
+        return MCGS_FAILURE;
+    }
+
+    if (!pVector) {
+        std::cerr << "missing input vector\n";
+        return MCGS_FAILURE;
     }
 
     // Construct a sparse CSR adaptor
@@ -32,19 +62,22 @@ int main(int argc, const char* const * argv)
         mcgs::TestCSRMatrix::Index,
         mcgs::TestCSRMatrix::Value
     > adaptor;
-    adaptor.rowCount = matrix.rowCount;
-    adaptor.columnCount = matrix.columnCount;
-    adaptor.nonzeroCount = matrix.nonzeroCount;
-    adaptor.pRowExtents = matrix.rowExtents.data();
-    adaptor.pColumnIndices = matrix.columnIndices.data();
-    adaptor.pNonzeros = matrix.nonzeros.data();
+    adaptor.rowCount        = pMatrix->rowCount;
+    adaptor.columnCount     = pMatrix->columnCount;
+    adaptor.nonzeroCount    = pMatrix->nonzeroCount;
+    adaptor.pRowExtents     = pMatrix->rowExtents.data();
+    adaptor.pColumnIndices  = pMatrix->columnIndices.data();
+    adaptor.pNonzeros       = pMatrix->nonzeros.data();
 
     // Allocate, initialize, define settings and color
-    std::vector<unsigned> colors(matrix.columnCount, std::numeric_limits<unsigned>::max());
-    mcgs::ColorSettings settings;
-    settings.verbosity = 3;
-    //settings.shrinkingFactor = 5;
-    mcgs::Color(adaptor, colors.data(), settings);
+    std::vector<unsigned> colors(pMatrix->columnCount, std::numeric_limits<unsigned>::max());
+
+    {
+        mcgs::ColorSettings settings;
+        settings.verbosity = 3;
+        settings.shrinkingFactor = 5;
+        mcgs::Color(colors.data(), adaptor, settings);
+    }
 
     // Check the coloring's correctness
     {
@@ -54,15 +87,17 @@ int main(int argc, const char* const * argv)
         > conflicts;
         std::unordered_set<unsigned> palette;
 
-        for (std::size_t iRow=0; iRow<matrix.columnCount; ++iRow) {
+        for (std::size_t iRow=0; iRow<pMatrix->columnCount; ++iRow) {
             const auto currentColor = colors[iRow];
             palette.insert(currentColor);
-            const auto iRowBegin = matrix.rowExtents[iRow];
-            const auto iRowEnd = matrix.rowExtents[iRow + 1];
+
+            const auto iRowBegin = pMatrix->rowExtents[iRow];
+            const auto iRowEnd = pMatrix->rowExtents[iRow + 1];
+
             for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
-                const mcgs::TestCSRMatrix::Index iColumn = matrix.columnIndices[iEntry];
+                const mcgs::TestCSRMatrix::Index iColumn = pMatrix->columnIndices[iEntry];
                 const auto neighborColor = colors[iColumn];
-                if (matrix.nonzeros[iEntry] && iRow != iColumn) {
+                if (pMatrix->nonzeros[iEntry] && iRow != iColumn) {
                     if (neighborColor == currentColor) {
                         conflicts.emplace(iRow, std::vector<mcgs::TestCSRMatrix::Index> {})
                             .first->second.push_back(iColumn);
@@ -81,6 +116,13 @@ int main(int argc, const char* const * argv)
             return MCGS_FAILURE;
         } // if conflicts
     } // destroy conflicts, palette
+
+    // Relax
+    std::vector<mcgs::TestCSRMatrix::Value> solution(adaptor.columnCount, 0.0);
+    {
+        mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
+        mcgs::Solve(solution.data(), adaptor, pVector->data(), colors.data(), settings);
+    }
 
     return MCGS_SUCCESS;
 }

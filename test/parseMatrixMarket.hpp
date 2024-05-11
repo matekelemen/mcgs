@@ -3,6 +3,7 @@
 // --- STL Includes ---
 #include <vector> // std::vector
 #include <fstream> // std::ifstream
+#include <variant> // std::variant
 
 
 namespace mcgs {
@@ -28,7 +29,13 @@ struct TestCSRMatrix
 }; // struct CSRMatrix
 
 
-TestCSRMatrix parseMatrixMarket(std::istream& r_stream);
+using TestDenseVector = std::vector<double>;
+
+
+std::variant<
+    TestCSRMatrix,
+    TestDenseVector
+> parseMatrixMarket(std::istream& r_stream);
 
 
 } // namespace mcgs

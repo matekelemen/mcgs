@@ -57,15 +57,16 @@ struct CSRAdaptor
 
 
 template <class TIndex, class TValue, class TColor>
-int Color(const CSRAdaptor<TIndex,TValue>& rMatrix,
-          TColor* pColors,
+int Color(TColor* pColors,
+          const CSRAdaptor<TIndex,TValue>& rMatrix,
           const ColorSettings settings);
 
 
 template <class TIndex, class TValue, class TColor>
-int Solve(const CSRAdaptor<TIndex,TValue>& rMatrix,
+int Solve(TValue* pSolution,
+          const CSRAdaptor<TIndex,TValue>& rMatrix,
+          const TValue* pRHS,
           const TColor* pColors,
-          TValue* pSolution,
           const SolveSettings<TIndex,TValue> settings);
 
 

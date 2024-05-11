@@ -181,8 +181,8 @@ void removeFromPalette(const TColor color,
 
 
 template <class TIndex, class TValue, class TColor>
-int Color(const CSRAdaptor<TIndex,TValue>& rMatrix,
-          TColor* pColors,
+int Color(TColor* pColors,
+          const CSRAdaptor<TIndex,TValue>& rMatrix,
           const ColorSettings settings)
 {
     // Cheap sanity checks
@@ -390,9 +390,9 @@ int Color(const CSRAdaptor<TIndex,TValue>& rMatrix,
 }
 
 
-#define MCGS_INSTANTIATE_COLORING(TIndex, TValue, TColor)        \
-    template int Color(const CSRAdaptor<TIndex,TValue>& rMatrix, \
-                       TColor* pColors,                          \
+#define MCGS_INSTANTIATE_COLORING(TIndex, TValue, TColor)           \
+    template int Color(TColor* pColors,                             \
+                       const CSRAdaptor<TIndex,TValue>& rMatrix,    \
                        const ColorSettings settings);
 
 MCGS_INSTANTIATE_COLORING(int, double, unsigned);

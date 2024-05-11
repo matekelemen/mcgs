@@ -3,6 +3,8 @@
 
 // --- STL Includes ---
 #include <istream> // std::istream
+#include <type_traits>
+#include <variant> // std::variant
 #include <regex> // std::regex
 #include <stdexcept> // std::runtime_error
 #include <string> // std::string, std::to_string
@@ -11,48 +13,57 @@
 namespace mcgs {
 
 
-TestCSRMatrix parseMatrixMarketHeader(std::istream& r_stream)
+std::variant<
+    TestCSRMatrix,
+    TestDenseVector
+> parseMatrixMarketHeader(std::istream& rStream)
 {
-    TestCSRMatrix output;
+    std::variant<TestCSRMatrix,TestDenseVector> output;
 
     std::regex formatPattern(R"(^%%MatrixMarket (\w+) (\w+) (.*)?)");
     std::regex qualifierPattern(R"(\w+)");
-    std::size_t i_line = 0ul;
+    std::size_t iLine = 0ul;
     std::string buffer(0x400, '\0');
 
-    while (r_stream.peek() == '%' && !r_stream.bad() && !r_stream.fail()) /*comment line begins with a '%'*/ {
+    while (rStream.peek() == '%' && !rStream.bad() && !rStream.fail()) /*comment line begins with a '%'*/ {
         // Read the input stream until the buffer is filled
         // or a newline character is encountered.
-        r_stream.getline(buffer.data(), buffer.size());
+        rStream.getline(buffer.data(), buffer.size());
 
         // If the fail bit is set, the buffer got filled before
         // a newline character was found in the stream. This means
         // that the input file is invalid.
-        if (r_stream.fail()) throw std::runtime_error("Error: failed to read line " + std::to_string(i_line));
+        if (rStream.fail()) throw std::runtime_error("Error: failed to read line " + std::to_string(iLine));
 
         // The first line must contain format properties.
         std::match_results<const std::string::value_type*> match;
         if (std::regex_match(buffer.data(), match, formatPattern)) {
-            if (i_line == 0ul) {
-                if (match.size() < 2) throw std::runtime_error("Error: too few matches in line " + std::to_string(i_line));
+            if (iLine == 0ul) {
+                if (match.size() < 2) throw std::runtime_error("Error: too few matches in line " + std::to_string(iLine));
 
                 // Parse object type (matrix, vector, etc.)
                 const std::string objectName = match.str(1);
-                if (objectName != "matrix") throw std::runtime_error("Error: invlaid object type: " + objectName);
+                if (objectName != "matrix") throw std::runtime_error("Error: invalid object type: " + objectName);
 
                 // Parse format type (coordinate or array)
                 const std::string formatName = match.str(2);
-                if (formatName != "coordinate") throw std::runtime_error("Error: invalid format type: " + formatName);
+                if (formatName == "coordinate") {
+                    output = TestCSRMatrix();
+                } else if (formatName == "array") {
+                    output = TestDenseVector();
+                } else {
+                    throw std::runtime_error("Error: invalid format type: " + formatName);
+                }
 
                 // Loop over optional qualifiers (value type, symmetry)
                 if (3 < match.size()) {
                     const std::string qualifiers = match.str(3);
-                    for (auto it_qualifier = std::sregex_iterator(qualifiers.begin(),
-                                                                  qualifiers.end(),
-                                                                  qualifierPattern);
-                            it_qualifier != std::sregex_iterator();
-                            ++it_qualifier) {
-                        const std::string qualifier = it_qualifier->str();
+                    for (auto itQualifier = std::sregex_iterator(qualifiers.begin(),
+                                                                 qualifiers.end(),
+                                                                 qualifierPattern);
+                            itQualifier != std::sregex_iterator();
+                            ++itQualifier) {
+                        const std::string qualifier = itQualifier->str();
                         if (qualifier == "real") {
                             // ok
                         } else if (qualifier == "integer") {
@@ -74,111 +85,164 @@ TestCSRMatrix parseMatrixMarketHeader(std::istream& r_stream)
                         }
                     }
                 }
-            } // if i_line == 0
+            } // if iLine == 0
 
-        } else if (i_line == 0ul) {
+        } else if (iLine == 0ul) {
             throw std::runtime_error("Error: the first line of the input must begin with '%%MatrixMarket' and define the matrix format");
         }
 
-        ++i_line;
+        ++iLine;
     }
 
     long long rows = 0ul, columns = 0ul, nonzeros = 0ul;
 
     // Parse number of rows
-    r_stream >> rows;
-    if (r_stream.fail()) {
+    rStream >> rows;
+    if (rStream.fail()) {
         throw std::runtime_error("Error: failed to parse the number of rows in the input matrix");
     } else if (rows < 0ll) {
         throw std::runtime_error("Error: negative number of rows in input");
     } else {
-        output.rowCount = static_cast<TestCSRMatrix::Index>(rows);
+        std::visit([rows](auto& rVariant){
+                using Value = std::remove_reference_t<decltype(rVariant)>;
+                if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
+                    rVariant.rowCount = rows;
+                } else if constexpr (std::is_same_v<Value,TestDenseVector>) {
+                    rVariant.reserve(rows);
+                }
+            }, output);
     }
 
     // Parse number of columns
-    r_stream >> columns;
-    if (r_stream.fail()) {
+    rStream >> columns;
+    if (rStream.fail()) {
         throw std::runtime_error("Error: failed to parse the number of columns in the input matrix");
     } else if (columns < 0ll) {
         throw std::runtime_error("Error: negative number of columns in input");
     } else {
-        output.columnCount = static_cast<std::size_t>(columns);
+        std::visit([columns](auto& rVariant){
+                using Value = std::remove_reference_t<decltype(rVariant)>;
+                if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
+                    rVariant.columnCount = columns;
+                } else if constexpr (std::is_same_v<Value,TestDenseVector>) {
+                    if (columns != 1) throw std::runtime_error("Error: expecting a vector, but the column size is " + std::to_string(columns));
+                }
+            }, output);
     }
 
     // Parse number of nonzeros
-    r_stream >> nonzeros;
-    if (r_stream.fail()) {
+    rStream >> nonzeros;
+    if (rStream.fail()) {
         throw std::runtime_error("Error: failed to parse the number of nonzeros in the input matrix\n");
     } else if (nonzeros < 0ll) {
         throw std::runtime_error("Error: negative number of nonzeros in input");
     } else {
-        output.nonzeroCount = static_cast<std::size_t>(nonzeros);
+        std::visit([nonzeros](auto& rVariant){
+                using Value = std::remove_reference_t<decltype(rVariant)>;
+                if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
+                    rVariant.nonzeroCount = nonzeros;
+                }
+            }, output);
     }
 
     // Ignore the rest of the line
-    r_stream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    rStream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-    output.rowExtents.reserve(output.rowCount + 1);
-    output.rowExtents.push_back(0);
-    output.columnIndices.reserve(output.nonzeroCount);
-    output.nonzeros.reserve(output.nonzeroCount);
+    std::visit([](auto& rVariant){
+            using Value = std::remove_reference_t<decltype(rVariant)>;
+            if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
+                rVariant.rowExtents.reserve(rVariant.rowCount + 1);
+                rVariant.rowExtents.push_back(0);
+                rVariant.columnIndices.reserve(rVariant.nonzeroCount);
+                rVariant.nonzeros.reserve(rVariant.nonzeroCount);
+            }
+        }, output);
+
     return output;
 }
 
 
-bool parseSparseDataLine(std::istream& r_stream, TestCSRMatrix& r_matrix)
+bool parseSparseDataLine(std::istream& rStream, TestCSRMatrix& rMatrix)
 {
     constexpr std::streamsize ignoreSize = std::numeric_limits<std::streamsize>::max();
-    TestCSRMatrix::Index i_row = 0, i_column = 0;
+    TestCSRMatrix::Index iRow = 0, iColumn = 0;
     TestCSRMatrix::Value value = 0.0;
 
     // Read row index
-    r_stream >> i_row;
-    if (r_stream.eof() || r_stream.bad()) {
-        r_stream.clear();
-        r_stream.ignore(ignoreSize, '\n');
+    rStream >> iRow;
+    if (rStream.eof() || rStream.bad()) {
+        rStream.clear();
+        rStream.ignore(ignoreSize, '\n');
         return false;
     }
 
     // Read column index
-    r_stream >> i_column;
-    if (r_stream.eof() || r_stream.bad()) {
-        r_stream.clear();
-        r_stream.ignore(ignoreSize, '\n');
+    rStream >> iColumn;
+    if (rStream.eof() || rStream.bad()) {
+        rStream.clear();
+        rStream.ignore(ignoreSize, '\n');
         return false;
     }
 
     // Read value if requested
-    r_stream >> value;
-    if (r_stream.eof() || r_stream.bad()) {
-        r_stream.clear();
-        r_stream.ignore(ignoreSize, '\n');
+    rStream >> value;
+    if (rStream.eof() || rStream.bad()) {
+        rStream.clear();
+        rStream.ignore(ignoreSize, '\n');
         return false;
     }
 
-    r_stream.ignore(ignoreSize, '\n');
+    rStream.ignore(ignoreSize, '\n');
 
     // Convert (row,column) indices to 0-based indices
-    --i_row;
-    --i_column;
+    --iRow;
+    --iColumn;
 
     // Record entry in the output matrix
-    r_matrix.columnIndices.push_back(i_column);
-    r_matrix.nonzeros.push_back(value);
-    if (r_matrix.rowExtents.size() < i_row + 1) {
-        for (auto i=r_matrix.rowExtents.size(); i<i_row + 1; ++i) r_matrix.rowExtents.push_back(r_matrix.nonzeros.size());
+    rMatrix.columnIndices.push_back(iColumn);
+    rMatrix.nonzeros.push_back(value);
+    if (rMatrix.rowExtents.size() < iRow + 1) {
+        for (auto i=rMatrix.rowExtents.size(); i<iRow + 1; ++i) rMatrix.rowExtents.push_back(rMatrix.nonzeros.size());
     }
 
     return true;
 }
 
 
-TestCSRMatrix parseMatrixMarket(std::istream& r_stream)
+bool parseDenseDataLine(std::istream& rStream, TestDenseVector& rVector)
 {
-    TestCSRMatrix matrix = parseMatrixMarketHeader(r_stream);
-    while (parseSparseDataLine(r_stream, matrix)) {}
-    matrix.rowExtents.push_back(matrix.nonzeros.size());
-    return matrix;
+    constexpr std::streamsize ignoreSize = std::numeric_limits<std::streamsize>::max();
+
+    rVector.emplace_back();
+    rStream >> rVector.back();
+    if (rStream.eof() || rStream.bad()) {
+        rStream.clear();
+        rStream.ignore(ignoreSize, '\n');
+        rVector.pop_back();
+        return false;
+    }
+
+    return true;
+}
+
+
+std::variant<
+    TestCSRMatrix,
+    TestDenseVector
+> parseMatrixMarket(std::istream& rStream)
+{
+    auto input = parseMatrixMarketHeader(rStream);
+
+    std::visit([&rStream](auto& rVariant){
+        using Type = std::remove_reference_t<decltype(rVariant)>;
+        if constexpr (std::is_same_v<Type,TestCSRMatrix>) {
+            while (parseSparseDataLine(rStream, rVariant)) {}
+        } else if constexpr (std::is_same_v<Type,TestDenseVector>) {
+            while (parseDenseDataLine(rStream, rVariant)) {}
+        }
+    }, input);
+
+    return input;
 }
 
 
