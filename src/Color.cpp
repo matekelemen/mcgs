@@ -48,7 +48,7 @@ struct IndexPairTraits
 
 // @todo change to a more efficient set
 template <class TIndex>
-using NeighborSet = std::set<TIndex>;
+using NeighborSet = std::unordered_set<TIndex>;
 
 
 /// @brief Collect all edges of an undirected graph.
