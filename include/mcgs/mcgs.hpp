@@ -27,11 +27,15 @@ struct SolveSettings
     TValue residualAbsoluteTolerance;
     TValue residualRelativeTolerance;
     TIndex maxIterations;
+    TValue relaxation;
+    unsigned short verbosity;
 
     SolveSettings() noexcept
-        : residualAbsoluteTolerance(1e-6),
-          residualRelativeTolerance(1e-4),
-          maxIterations(1e3)
+        : residualAbsoluteTolerance(-1),
+          residualRelativeTolerance(-1),
+          maxIterations(1),
+          relaxation(1),
+          verbosity(1)
     {}
 };
 

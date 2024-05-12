@@ -127,6 +127,8 @@ int main(int argc, const char* const * argv)
         }
 
         mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
+        settings.maxIterations = 1e3;
+        settings.verbosity = 3;
         mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings);
 
         mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pPartition);

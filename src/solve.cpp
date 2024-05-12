@@ -1,11 +1,83 @@
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::solve, mcgs::CSRAdaptor
+#include "partition.hpp" // mcgs::Partition
 
 // --- STL Includes ---
 #include <cstddef> // std::size_t
+#include <omp.h>
+#include <vector> // std::vector
+#include <algorithm> // std::copy
+#include <cmath> // std::sqrt
+#include <iostream> // std::cout, std::cerr
 
 
 namespace mcgs {
+
+
+template <class TIndex, class TValue>
+TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
+                const TValue* pSolution,
+                const TValue* pRHS,
+                TValue* buffer) noexcept
+{
+    std::copy(pRHS, pRHS + rMatrix.columnCount, buffer);
+    TValue residual = 0;
+
+    //#pragma omp parallel for reduction(+: residual)
+    for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+        TValue& rResidualComponent = buffer[iRow];
+        const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
+        const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
+
+        for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
+            const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
+            rResidualComponent -= rMatrix.pNonzeros[iEntry] * pSolution[iColumn];
+        } // for iEntry in range(iRowBegin, iRowEnd)
+
+        residual += rResidualComponent * rResidualComponent;
+    } // for iRow in range(0, rowCount)
+
+    return std::sqrt(residual);
+}
+
+
+template <class TIndex, class TValue>
+int solve(TValue* pSolution,
+          const CSRAdaptor<TIndex,TValue>& rMatrix,
+          const TValue* pRHS,
+          const SolveSettings<TIndex,TValue> settings)
+{
+    std::vector<TValue> buffer(rMatrix.columnCount);
+    const TValue initialResidual = residual(rMatrix, pSolution, pRHS, buffer.data());
+
+    for (TIndex iIteration=0; iIteration<settings.maxIterations; ++iIteration) {
+        for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+            TValue value = pRHS[iRow];
+            TValue diagonal = 1;
+
+            const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
+            const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
+
+            for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
+                const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
+                const TValue nonzero = rMatrix.pNonzeros[iEntry];
+
+                if (iColumn == iRow) diagonal = nonzero;
+                else value -= nonzero * pSolution[iColumn];
+            } // for iEntry in range(iRowBegin, iRowEnd)
+
+            pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);
+        }
+
+        if (3 <= settings.verbosity) {
+            std::cout << "residual: "
+                        << residual(rMatrix, pSolution, pRHS, buffer.data()) / initialResidual
+                        << "\n";
+        }
+    }
+
+    return MCGS_SUCCESS;
+}
 
 
 template <class TIndex, class TValue, class TColor>
@@ -15,6 +87,58 @@ int solve(TValue* pSolution,
           const Partition<TIndex,TColor>* pPartition,
           const SolveSettings<TIndex,TValue> settings)
 {
+    // Serial version
+    //return solve(pSolution, rMatrix, pRHS, settings);
+    //const auto threadCount = omp_get_num_threads();
+
+    std::vector<TValue> buffer(rMatrix.columnCount);
+    const TValue initialResidual = residual(rMatrix, pSolution, pRHS, buffer.data());
+
+    #pragma omp parallel
+    {
+        for (TIndex iIteration=0; iIteration<settings.maxIterations; ++iIteration) {
+            for (TIndex iPartition=0; iPartition<pPartition->size(); ++iPartition) {
+                const auto itPartitionBegin = pPartition->begin(iPartition);
+                const auto partitionSize = pPartition->size(iPartition);
+
+                #define MCGS_SWEEP                                                                  \
+                    for (TIndex iLocal=0; iLocal<partitionSize; ++iLocal) {                         \
+                        const TIndex iRow = itPartitionBegin[iLocal];                               \
+                        TValue value = pRHS[iRow];                                                  \
+                        TValue diagonal = 1;                                                        \
+                                                                                                    \
+                        const TIndex iRowBegin = rMatrix.pRowExtents[iRow];                         \
+                        const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];                       \
+                                                                                                    \
+                        for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {                   \
+                            const TIndex iColumn = rMatrix.pColumnIndices[iEntry];                  \
+                            if (iColumn == iRow) diagonal = rMatrix.pNonzeros[iEntry];              \
+                            else value -= rMatrix.pNonzeros[iEntry] * pSolution[iColumn];           \
+                        } /*for iEntry in range(iRowBegin, iRowEnd)*/                               \
+                                                                                                    \
+                    pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);  \
+                } // for iLocal in range()
+
+                #pragma omp for
+                MCGS_SWEEP
+
+                #undef MCGS_SWEEP
+
+            } // for iPartition in range(partitionCount)
+
+            if (3 <= settings.verbosity) {
+                #pragma omp barrier
+                #pragma omp single
+                {
+                    std::cout << "residual: "
+                              << residual(rMatrix, pSolution, pRHS, buffer.data()) / initialResidual
+                              << "\n";
+                }
+            }
+        } // for iIteration in range(settings.maxIterations)
+
+    } // omp parallel
+
     return MCGS_SUCCESS;
 }
 
