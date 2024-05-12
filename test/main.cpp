@@ -13,6 +13,24 @@
 #include <array> // std::array
 
 
+void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value>& rMatrix)
+{
+    std::ofstream file("matrix.mm");
+    file << std::fixed << std::setprecision(12) << std::scientific;
+    file << "%%MatrixMarket matrix coordinate real general\n";
+    file << rMatrix.rowCount << " " << rMatrix.columnCount << " " << rMatrix.nonzeroCount << "\n";
+    for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+        const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
+        const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
+        for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
+            const auto iColumn = rMatrix.pColumnIndices[iEntry];
+            const auto nonzero = rMatrix.pNonzeros[iEntry];
+            file << iRow + 1 << " " << iColumn + 1 << " " << nonzero << "\n";
+        }
+    }
+}
+
+
 int main(int argc, const char* const * argv)
 {
     if (argc != 3) {
@@ -75,6 +93,7 @@ int main(int argc, const char* const * argv)
     {
         mcgs::ColorSettings settings;
         settings.verbosity = 3;
+        settings.shrinkingFactor = 2;
         settings.maxStallCount = 1e4;
         mcgs::color(colors.data(), adaptor, settings);
     }
