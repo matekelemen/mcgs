@@ -283,6 +283,7 @@ int color(TColor* pColors,
     // Keep coloring until all vertices are colored.
     using UniformDistribution = std::uniform_int_distribution<TColor>;
     std::size_t iterationCount = 0ul;
+    int stallCounter = 0;
 
     while (!uncolored.empty()) {
         const std::size_t visitCount = uncolored.size();
@@ -370,6 +371,8 @@ int color(TColor* pColors,
         if (uncolored.size() == visitCount) {
             // Failed to color any vertices => extend the palette of some random vertices
             bool success = false;
+            const TIndex maxExtensions = std::max(TIndex(1), TIndex(uncolored.size() / 1));
+            TIndex extensionCounter = 0;
 
             for (TIndex iVertex : uncolored) {
                 const auto itPaletteBegin = palettes.begin() + iVertex * (maxDegree + 1);
@@ -379,11 +382,18 @@ int color(TColor* pColors,
                 }
             }
 
-            if (!success) {
-                if (1 <= settings.verbosity) std::cerr << "Error: all remaining vertices' palettes are full\n";
-                return MCGS_FAILURE;
+            if (!extensionCounter) {
+                ++stallCounter;
+                if (0 <= settings.maxStallCount && settings.maxStallCount <= stallCounter) {
+                    if (1 <= settings.verbosity) std::cerr << "Error: reached stall limit (" << settings.maxStallCount << ")\n";
+                    return MCGS_FAILURE;
+                }
+            } else {
+                stallCounter = 0;
             }
-        } // if uncolored.size() == visitCount
+        } /*if uncolored.size() == visitCount*/ else {
+            stallCounter = 0;
+        }
     } // while uncolored
 
     return MCGS_SUCCESS;

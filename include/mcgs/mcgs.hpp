@@ -10,11 +10,12 @@ namespace mcgs {
 struct ColorSettings
 {
     int shrinkingFactor;
-
+    int maxStallCount;
     unsigned short verbosity;
 
     ColorSettings() noexcept
         : shrinkingFactor(-1),
+          maxStallCount(3),
           verbosity(1)
     {}
 };

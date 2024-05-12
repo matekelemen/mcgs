@@ -75,7 +75,7 @@ int main(int argc, const char* const * argv)
     {
         mcgs::ColorSettings settings;
         settings.verbosity = 3;
-        settings.shrinkingFactor = 5;
+        settings.maxStallCount = 1e4;
         mcgs::color(colors.data(), adaptor, settings);
     }
 
