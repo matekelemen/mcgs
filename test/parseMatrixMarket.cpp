@@ -152,7 +152,6 @@ std::variant<
             using Value = std::remove_reference_t<decltype(rVariant)>;
             if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
                 rVariant.rowExtents.reserve(rVariant.rowCount + 1);
-                rVariant.rowExtents.push_back(0);
                 rVariant.columnIndices.reserve(rVariant.nonzeroCount);
                 rVariant.nonzeros.reserve(rVariant.nonzeroCount);
             }
@@ -199,11 +198,9 @@ bool parseSparseDataLine(std::istream& rStream, TestCSRMatrix& rMatrix)
     --iColumn;
 
     // Record entry in the output matrix
+    for (auto i=rMatrix.rowExtents.size(); i<=iRow; ++i) rMatrix.rowExtents.push_back(rMatrix.nonzeros.size());
     rMatrix.columnIndices.push_back(iColumn);
     rMatrix.nonzeros.push_back(value);
-    if (rMatrix.rowExtents.size() < iRow + 1) {
-        for (auto i=rMatrix.rowExtents.size(); i<iRow + 1; ++i) rMatrix.rowExtents.push_back(rMatrix.nonzeros.size());
-    }
 
     return true;
 }
@@ -237,6 +234,7 @@ std::variant<
         using Type = std::remove_reference_t<decltype(rVariant)>;
         if constexpr (std::is_same_v<Type,TestCSRMatrix>) {
             while (parseSparseDataLine(rStream, rVariant)) {}
+            rVariant.rowExtents.push_back(rVariant.nonzeros.size());
         } else if constexpr (std::is_same_v<Type,TestDenseVector>) {
             while (parseDenseDataLine(rStream, rVariant)) {}
         }
