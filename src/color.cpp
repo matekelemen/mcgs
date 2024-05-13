@@ -2,7 +2,7 @@
 #include <omp.h>
 
 // --- Internal Includes ---
-#include "mcgs/mcgs.hpp" // mcgs::GaussSeidel
+#include "mcgs/mcgs.hpp" // mcgs::color
 
 // --- STL Includes ---
 #include <vector> // std::vector
@@ -145,38 +145,38 @@ bool isColored(const TIndex iVertex,
 }
 
 
+template <class TColor>
+struct Palette
+{
+    TColor maxColor;
+
+    std::vector<TColor> palette;
+}; // struct Palette
+
+
 template <class TIndex, class TColor>
-bool extendPalette(TColor* pPaletteBegin,
+bool extendPalette(Palette<TColor>& rPalette,
                    const TIndex maxVertexDegree)
 {
-    TColor& rPaletteSize = pPaletteBegin[maxVertexDegree];
-
-    if (rPaletteSize < maxVertexDegree) {
+    //if (rPalette.palette.size() < maxVertexDegree) {
         // Find the largest color the vertex ever had, and add
         // a color one greater to its palette.
-        const TColor newColor = (*std::max_element(
-            pPaletteBegin,
-            pPaletteBegin + maxVertexDegree
-        )) + 1;
-        pPaletteBegin[rPaletteSize++] = newColor;
+        rPalette.palette.push_back(++rPalette.maxColor);
         return true;
-    } else {
-        return false;
-    }
+    //} else {
+    //    return false;
+    //}
 }
 
 
-template <class TIndex, class TColor>
+template <class TColor>
 void removeFromPalette(const TColor color,
-                       TColor* pPaletteBegin,
-                       const TIndex maxVertexDegree)
+                       Palette<TColor>& rPalette)
 {
-    TColor& rPaletteSize = pPaletteBegin[maxVertexDegree];
-    const auto itPaletteEnd = pPaletteBegin + rPaletteSize;
-
-    if (std::remove(pPaletteBegin, itPaletteEnd, color) != itPaletteEnd) {
-        --rPaletteSize;
-    }
+    rPalette.palette.erase(std::remove(rPalette.palette.begin(),
+                                       rPalette.palette.end(),
+                                       color),
+                           rPalette.palette.end());
 }
 
 
@@ -250,7 +250,7 @@ int color(TColor* pColors,
 
     // Allocate the palette of every vertex to the max possible (maximum vertex degree).
     // An extra entry at the end of each palette indicates the palette's actual size.
-    std::vector<TColor> palettes(rMatrix.columnCount * (maxDegree + 1));
+    std::vector<Palette<TColor>> palettes(rMatrix.columnCount);
     const TIndex shrinkingFactor = 0 < settings.shrinkingFactor ?
                                    static_cast<TIndex>(settings.shrinkingFactor) :
                                    std::max(TIndex(1), minDegree);
@@ -266,12 +266,10 @@ int color(TColor* pColors,
     // Initialize the palette of all vertices to a shrunk set
     #pragma omp parallel for
     for (TIndex iVertex=0; iVertex<rMatrix.columnCount; ++iVertex) {
-        const auto itPaletteBegin = palettes.begin() + iVertex * (maxDegree + 1);
-        const auto itPaletteEnd = itPaletteBegin + initialPaletteSize;
-        std::iota(itPaletteBegin, itPaletteEnd, TColor(0));
-        std::fill(itPaletteEnd, itPaletteBegin + maxDegree, TColor(0));
-        itPaletteBegin[maxDegree] = static_cast<TColor>(initialPaletteSize);
-    } // for itPaletteBegin
+        palettes[iVertex].palette.resize(initialPaletteSize);
+        std::iota(palettes[iVertex].palette.begin(), palettes[iVertex].palette.end(), TColor(0));
+        palettes[iVertex].maxColor = initialPaletteSize;
+    } // for iVertex in range(columnCount)
 
     // Track vertices that need to be colored.
     std::vector<TIndex> uncolored;
@@ -302,10 +300,9 @@ int color(TColor* pColors,
             #pragma omp for
             for (std::size_t iVisit=0ul; iVisit<uncolored.size(); ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
-                const auto itPaletteBegin = palettes.begin() + iVertex * (maxDegree + 1);
-                const TColor paletteSize = itPaletteBegin[maxDegree];
+                const TColor paletteSize = palettes[iVertex].palette.size();
                 const TColor colorIndex = UniformDistribution(TColor(0), paletteSize)(randomGenerator);
-                pColors[iVertex] = itPaletteBegin[colorIndex];
+                pColors[iVertex] = palettes[iVertex].palette[colorIndex];
             }
         } // omp parallel
 
@@ -339,11 +336,9 @@ int color(TColor* pColors,
                     const auto itNeighbor = locks.find(iNeighbor);
 
                     if (itNeighbor != locks.end()) {
-                        const auto itPaletteBegin = palettes.begin() + iNeighbor * (maxDegree + 1);
-
                         omp_set_lock(&itNeighbor->second);
-                        removeFromPalette(pColors[iVertex], &*itPaletteBegin, maxDegree);
-                        if (!itPaletteBegin[maxDegree]) extendPalette(&*itPaletteBegin, maxDegree);
+                        removeFromPalette(pColors[iVertex], palettes[iNeighbor]);
+                        if (palettes[iNeighbor].palette.empty()) extendPalette(palettes[iNeighbor], maxDegree);
                         omp_unset_lock(&itNeighbor->second);
                     } // if itNeighbor
                 } // for iNeighbor in neighbors[iVertex]
@@ -375,8 +370,7 @@ int color(TColor* pColors,
             TIndex extensionCounter = 0;
 
             for (TIndex iVertex : uncolored) {
-                const auto itPaletteBegin = palettes.begin() + iVertex * (maxDegree + 1);
-                if (extendPalette(&*itPaletteBegin, maxDegree)) {
+                if (extendPalette(palettes[iVertex], maxDegree)) {
                     success = true;
                     break;
                 }
