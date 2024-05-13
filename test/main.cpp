@@ -48,10 +48,10 @@ int main(int argc, const char* const * argv)
         input[iArg] = mcgs::parseMatrixMarket(file);
     }
 
-    const mcgs::TestCSRMatrix* pMatrix = nullptr;
-    const mcgs::TestDenseVector* pVector = nullptr;
-    for (const auto& rInput : input) {
-        std::visit([&pMatrix, &pVector](const auto& rVariant){
+    mcgs::TestCSRMatrix* pMatrix = nullptr;
+    mcgs::TestDenseVector* pVector = nullptr;
+    for (auto& rInput : input) {
+        std::visit([&pMatrix, &pVector](auto& rVariant){
             using Type = std::remove_const_t<std::remove_reference_t<decltype(rVariant)>>;
             if constexpr (std::is_same_v<Type,mcgs::TestCSRMatrix>) {
                 pMatrix = &rVariant;
@@ -92,8 +92,8 @@ int main(int argc, const char* const * argv)
 
     {
         mcgs::ColorSettings settings;
-        settings.verbosity = 3;
-        settings.shrinkingFactor = 2;
+        settings.verbosity = 1;
+        settings.shrinkingFactor = 256;
         settings.maxStallCount = 1e4;
         mcgs::color(colors.data(), adaptor, settings);
     }
@@ -144,9 +144,14 @@ int main(int argc, const char* const * argv)
             std::cerr << "partitioning failed\n";
             return MCGS_FAILURE;
         }
+        //mcgs::reorder(pMatrix->rowCount, pMatrix->columnCount, pMatrix->nonzeroCount,
+        //              pMatrix->rowExtents.data(), pMatrix->columnIndices.data(), pMatrix->nonzeros.data(),
+        //              pVector->data(),
+        //              pPartition);
+        //print(adaptor);
 
         mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
-        settings.maxIterations = 1e3;
+        settings.maxIterations = 1e1;
         settings.verbosity = 3;
         mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings);
 
