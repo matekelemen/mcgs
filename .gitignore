@@ -15,6 +15,7 @@
 !src/color.cpp
 !src/partition.hpp
 !src/partition.cpp
+!src/reorder.cpp
 !src/solve.cpp
 
 !test

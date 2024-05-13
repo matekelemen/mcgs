@@ -81,6 +81,13 @@ void destroyPartition(Partition<TIndex,TColor>* pPartition);
 
 
 template <class TIndex, class TValue, class TColor>
+int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
+            TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
+            TValue* pRHS,
+            Partition<TIndex,TColor>* pPartition);
+
+
+template <class TIndex, class TValue, class TColor>
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
