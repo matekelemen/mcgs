@@ -74,6 +74,22 @@ Partition<TIndex,TColor>::end(const size_type iPartition) const noexcept
 
 
 template <class TIndex, class TColor>
+typename Partition<TIndex,TColor>::iterator
+Partition<TIndex,TColor>::begin(const size_type iPartition) noexcept
+{
+    return &_partitions[_partitionExtents[iPartition]];
+}
+
+
+template <class TIndex, class TColor>
+typename Partition<TIndex,TColor>::iterator
+Partition<TIndex,TColor>::end(const size_type iPartition) noexcept
+{
+    return &_partitions[_partitionExtents[iPartition + 1]];
+}
+
+
+template <class TIndex, class TColor>
 [[nodiscard]] Partition<TIndex,TColor>* makePartition(const TColor* pColors,
                                                       const TIndex columnCount)
 {
