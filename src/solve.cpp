@@ -14,6 +14,13 @@
 namespace mcgs {
 
 
+bool isWorthParallelizing(const std::size_t independentRowCount,
+                          const std::size_t threadCount)
+{
+    return threadCount < 12 * independentRowCount;
+}
+
+
 template <class TIndex, class TValue>
 TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
                 const TValue* pSolution,
@@ -23,7 +30,7 @@ TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
     std::copy(pRHS, pRHS + rMatrix.columnCount, buffer);
     TValue residual = 0;
 
-    //#pragma omp parallel for reduction(+: residual)
+    #pragma omp parallel for reduction(+: residual)
     for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         TValue& rResidualComponent = buffer[iRow];
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
@@ -70,9 +77,10 @@ int solve(TValue* pSolution,
         }
 
         if (3 <= settings.verbosity) {
-            std::cout << "residual: "
-                        << residual(rMatrix, pSolution, pRHS, buffer.data()) / initialResidual
-                        << "\n";
+            std::cout << "iteration " << iIteration
+                      << " residual: "
+                      << residual(rMatrix, pSolution, pRHS, buffer.data()) / initialResidual
+                      << "\n";
         }
     }
 
@@ -89,55 +97,53 @@ int solve(TValue* pSolution,
 {
     // Serial version
     //return solve(pSolution, rMatrix, pRHS, settings);
-    //const auto threadCount = omp_get_num_threads();
+    const auto threadCount = omp_get_num_threads();
 
     std::vector<TValue> buffer(rMatrix.columnCount);
     const TValue initialResidual = residual(rMatrix, pSolution, pRHS, buffer.data());
 
-    #pragma omp parallel
-    {
-        for (TIndex iIteration=0; iIteration<settings.maxIterations; ++iIteration) {
-            for (TIndex iPartition=0; iPartition<pPartition->size(); ++iPartition) {
-                const auto itPartitionBegin = pPartition->begin(iPartition);
-                const auto partitionSize = pPartition->size(iPartition);
+    for (TIndex iIteration=0; iIteration<settings.maxIterations; ++iIteration) {
+        for (TIndex iPartition=0; iPartition<pPartition->size(); ++iPartition) {
+            const auto itPartitionBegin = pPartition->begin(iPartition);
+            const auto partitionSize = pPartition->size(iPartition);
 
-                #define MCGS_SWEEP                                                                  \
-                    for (TIndex iLocal=0; iLocal<partitionSize; ++iLocal) {                         \
-                        const TIndex iRow = itPartitionBegin[iLocal];                               \
-                        TValue value = pRHS[iRow];                                                  \
-                        TValue diagonal = 1;                                                        \
-                                                                                                    \
-                        const TIndex iRowBegin = rMatrix.pRowExtents[iRow];                         \
-                        const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];                       \
-                                                                                                    \
-                        for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {                   \
-                            const TIndex iColumn = rMatrix.pColumnIndices[iEntry];                  \
-                            if (iColumn == iRow) diagonal = rMatrix.pNonzeros[iEntry];              \
-                            else value -= rMatrix.pNonzeros[iEntry] * pSolution[iColumn];           \
-                        } /*for iEntry in range(iRowBegin, iRowEnd)*/                               \
-                                                                                                    \
-                    pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);  \
-                } // for iLocal in range()
+            #define MCGS_SWEEP                                                                  \
+                for (TIndex iLocal=0; iLocal<partitionSize; ++iLocal) {                         \
+                    const TIndex iRow = itPartitionBegin[iLocal];                               \
+                    TValue value = pRHS[iRow];                                                  \
+                    TValue diagonal = 1;                                                        \
+                                                                                                \
+                    const TIndex iRowBegin = rMatrix.pRowExtents[iRow];                         \
+                    const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];                       \
+                                                                                                \
+                    for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {                   \
+                        const TIndex iColumn = rMatrix.pColumnIndices[iEntry];                  \
+                        const TValue product = rMatrix.pNonzeros[iEntry] * pSolution[iColumn];  \
+                        if (iColumn == iRow) diagonal = rMatrix.pNonzeros[iEntry];              \
+                        else value -= product;                                                  \
+                    } /*for iEntry in range(iRowBegin, iRowEnd)*/                               \
+                                                                                                \
+                pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);  \
+            } // for iLocal in range()
 
-                #pragma omp for
+            if (isWorthParallelizing(pPartition->size(iPartition), threadCount)) {
+                #pragma omp parallel for
                 MCGS_SWEEP
-
-                #undef MCGS_SWEEP
-
-            } // for iPartition in range(partitionCount)
-
-            if (3 <= settings.verbosity) {
-                #pragma omp barrier
-                #pragma omp single
-                {
-                    std::cout << "residual: "
-                              << residual(rMatrix, pSolution, pRHS, buffer.data()) / initialResidual
-                              << "\n";
-                }
+            } else {
+                MCGS_SWEEP
             }
-        } // for iIteration in range(settings.maxIterations)
 
-    } // omp parallel
+            #undef MCGS_SWEEP
+
+        } // for iPartition in range(partitionCount)
+
+        if (3 <= settings.verbosity) {
+            std::cout << "iteration " << iIteration
+                      << " residual: "
+                      << residual(rMatrix, pSolution, pRHS, buffer.data()) / initialResidual
+                      << "\n";
+        }
+    } // for iIteration in range(settings.maxIterations)
 
     return MCGS_SUCCESS;
 }
