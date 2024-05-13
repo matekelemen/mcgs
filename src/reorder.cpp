@@ -48,7 +48,6 @@ int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzer
         for (std::remove_const_t<decltype(partitionSize)> iLocal=0; iLocal<partitionSize; ++iLocal) {
             const TIndex iOldRow = itPartitionBegin[iLocal];
             const TIndex iNewRow = iNewRowBegin + iLocal;
-            const auto rowSize = pRowExtents[iOldRow + 1] - pRowExtents[iOldRow];
 
             std::copy(pColumnIndices + pRowExtents[iOldRow],
                       pColumnIndices + pRowExtents[iOldRow + 1],
