@@ -11,6 +11,31 @@
 #include <unordered_set> // std::unordered_set
 #include <limits> // std::numeric_limits::max
 #include <array> // std::array
+#include <chrono> // std::chrono::steady_clock, std::chrono::duration_cast
+
+
+class ScopedTimer
+{
+public:
+    ScopedTimer(std::string&& rTag)
+        : _begin(std::chrono::steady_clock::now()),
+          _tag(std::move(rTag))
+    {}
+
+    ~ScopedTimer()
+    {
+        const auto end = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - _begin);
+        std::cout << _tag << " took " << elapsed.count() << "[ms]\n";
+    }
+
+private:
+    std::chrono::steady_clock::time_point _begin;
+    std::string _tag;
+};
+
+
+#define MCGS_SCOPED_TIMER(TAG) [[maybe_unused]] ScopedTimer MCGS_SCOPED_TIMER_INSTANCE(TAG)
 
 
 void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value>& rMatrix)
@@ -44,6 +69,7 @@ int main(int argc, const char* const * argv)
 
     for (std::size_t iArg=0ul; iArg<2ul; ++iArg) {
         const std::filesystem::path path = argv[iArg + 1];
+        MCGS_SCOPED_TIMER("Reading " + path.string());
         std::ifstream file(path);
         input[iArg] = mcgs::parseMatrixMarket(file);
     }
@@ -91,15 +117,17 @@ int main(int argc, const char* const * argv)
     std::vector<unsigned> colors(pMatrix->columnCount, std::numeric_limits<unsigned>::max());
 
     {
+        MCGS_SCOPED_TIMER("coloring");
         mcgs::ColorSettings settings;
-        settings.verbosity = 3;
-        settings.shrinkingFactor = 64;
+        settings.verbosity = 1;
+        settings.shrinkingFactor = 128;
         settings.maxStallCount = 1e4;
         mcgs::color(colors.data(), adaptor, settings);
     }
 
     // Check the coloring's correctness
     {
+        MCGS_SCOPED_TIMER("coloring validation");
         std::unordered_map<
             mcgs::TestCSRMatrix::Index,
             std::vector<mcgs::TestCSRMatrix::Index>
@@ -138,25 +166,35 @@ int main(int argc, const char* const * argv)
 
     // Relax
     std::vector<mcgs::TestCSRMatrix::Value> solution(adaptor.columnCount, 0.0);
+    mcgs::Partition<mcgs::TestCSRMatrix::Index,decltype(colors)::value_type>* pPartition;
     {
-        auto* pPartition = mcgs::makePartition(colors.data(), adaptor.columnCount);
+        MCGS_SCOPED_TIMER("partitioning");
+        pPartition = mcgs::makePartition(colors.data(), adaptor.columnCount);
         if (!pPartition) {
             std::cerr << "partitioning failed\n";
             return MCGS_FAILURE;
         }
+    }
+
+    {
+        MCGS_SCOPED_TIMER("reordering");
         mcgs::reorder(pMatrix->rowCount, pMatrix->columnCount, pMatrix->nonzeroCount,
                       pMatrix->rowExtents.data(), pMatrix->columnIndices.data(), pMatrix->nonzeros.data(),
                       pVector->data(),
                       pPartition);
-        //print(adaptor);
+    }
 
+    //print(adaptor);
+
+    {
+        MCGS_SCOPED_TIMER("relaxation");
         mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
         settings.maxIterations = 1e2;
-        settings.verbosity = 3;
+        settings.verbosity = 1;
         mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings);
-
-        mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pPartition);
     }
+
+    mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pPartition);
 
     return MCGS_SUCCESS;
 }
