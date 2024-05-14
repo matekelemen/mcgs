@@ -4,7 +4,7 @@
 
 // --- STL Includes ---
 #include <vector> // std::vector
-#include <algorithm> // std::copy, std::swap
+#include <algorithm> // std::copy, std::swap, std::transform
 #include <numeric> // std::iota
 
 
@@ -40,6 +40,8 @@ int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzer
     }
 
     TIndex iNewRowBegin = 0;
+    std::vector<TIndex> columnMap(columnCount);
+
     for (std::size_t iPartition=0; iPartition<partitionCount; ++iPartition) {
         auto itPartitionBegin = pPartition->begin(iPartition);
         const auto partitionSize = pPartition->size(iPartition);
@@ -48,6 +50,7 @@ int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzer
         for (std::remove_const_t<decltype(partitionSize)> iLocal=0; iLocal<partitionSize; ++iLocal) {
             const TIndex iOldRow = itPartitionBegin[iLocal];
             const TIndex iNewRow = iNewRowBegin + iLocal;
+            columnMap[iOldRow] = iNewRow;
 
             std::copy(pColumnIndices + pRowExtents[iOldRow],
                       pColumnIndices + pRowExtents[iOldRow + 1],
@@ -65,8 +68,13 @@ int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzer
     } // for iPartition in range(partitionCount)
 
     std::copy(newRowExtents.begin(), newRowExtents.end(), pRowExtents);
-    std::copy(newColumnIndices.begin(), newColumnIndices.end(), pColumnIndices);
     std::copy(newNonzeros.begin(), newNonzeros.end(), pNonzeros);
+    std::transform(newColumnIndices.begin(),
+                   newColumnIndices.end(),
+                   pColumnIndices,
+                   [&columnMap](const TIndex iOldColumn) -> TIndex {
+                        return columnMap[iOldColumn];
+                   });
 
     return MCGS_SUCCESS;
 }
