@@ -8,19 +8,12 @@
 // --- STL Includes ---
 #include <cstddef> // std::size_t
 #include <vector> // std::vector
-#include <algorithm> // std::copy
+#include <algorithm> // std::copy, std::clamp
 #include <cmath> // std::sqrt
 #include <iostream> // std::cout, std::cerr
 
 
 namespace mcgs {
-
-
-bool isWorthParallelizing(const std::size_t independentRowCount,
-                          const std::size_t threadCount)
-{
-    return threadCount < 12 * independentRowCount;
-}
 
 
 template <class TIndex, class TValue>
@@ -97,39 +90,55 @@ int solve(TValue* pSolution,
           const Partition<TIndex>* pPartition,
           const SolveSettings<TIndex,TValue> settings)
 {
-    // Serial version
-    //return solve(pSolution, rMatrix, pRHS, settings);
-    const auto threadCount = omp_get_num_threads();
+    // Collect how many threads should execute each partition.
+    const auto maxThreadCount = omp_get_max_threads();
+    std::vector<int> threadCounts(pPartition->size());
+
+    #pragma omp parallel for
+    for (int iPartition=0; iPartition<static_cast<int>(pPartition->size()); ++iPartition) {
+        std::size_t nonzeroCount = 0ul;
+        for (auto itPartition=pPartition->begin(iPartition); itPartition!=pPartition->end(iPartition); ++itPartition) {
+            const TIndex iRow = *itPartition;
+            nonzeroCount += rMatrix.pRowExtents[iRow + 1] - rMatrix.pRowExtents[iRow];
+        } // for itPartition in pPartition[iPartition]
+
+        // @todo Find a dynamic way of approximating the optimal load of a single thread.
+        threadCounts[iPartition] = std::clamp(nonzeroCount / 1024,
+                                              static_cast<std::size_t>(1),
+                                              std::min(pPartition->size(iPartition),
+                                                       static_cast<std::size_t>(maxThreadCount)));
+    }
 
     std::vector<TValue> buffer(rMatrix.columnCount);
     const TValue initialResidual = residual(rMatrix, pSolution, pRHS, buffer.data());
 
     for (TIndex iIteration=0; iIteration<settings.maxIterations; ++iIteration) {
-        for (TIndex iPartition=0; iPartition<pPartition->size(); ++iPartition) {
+        for (typename Partition<TIndex>::size_type iPartition=0; iPartition<pPartition->size(); ++iPartition) {
             const auto itPartitionBegin = pPartition->begin(iPartition);
             const auto partitionSize = pPartition->size(iPartition);
 
-            #define MCGS_SWEEP                                                                  \
-                for (TIndex iLocal=0; iLocal<partitionSize; ++iLocal) {                         \
-                    const TIndex iRow = itPartitionBegin[iLocal];                               \
-                    TValue value = pRHS[iRow];                                                  \
-                    TValue diagonal = 1;                                                        \
-                                                                                                \
-                    const TIndex iRowBegin = rMatrix.pRowExtents[iRow];                         \
-                    const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];                       \
-                                                                                                \
-                    for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {                   \
-                        const TIndex iColumn = rMatrix.pColumnIndices[iEntry];                  \
-                        const TValue product = rMatrix.pNonzeros[iEntry] * pSolution[iColumn];  \
-                        if (iColumn == iRow) diagonal = rMatrix.pNonzeros[iEntry];              \
-                        else value -= product;                                                  \
-                    } /*for iEntry in range(iRowBegin, iRowEnd)*/                               \
-                                                                                                \
-                pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);  \
+            #define MCGS_SWEEP                                                                          \
+                for (typename Partition<TIndex>::size_type iLocal=0; iLocal<partitionSize; ++iLocal) {  \
+                    const TIndex iRow = itPartitionBegin[iLocal];                                       \
+                    TValue value = pRHS[iRow];                                                          \
+                    TValue diagonal = 1;                                                                \
+                                                                                                        \
+                    const TIndex iRowBegin = rMatrix.pRowExtents[iRow];                                 \
+                    const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];                               \
+                                                                                                        \
+                    for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {                           \
+                        const TIndex iColumn = rMatrix.pColumnIndices[iEntry];                          \
+                        const TValue product = rMatrix.pNonzeros[iEntry] * pSolution[iColumn];          \
+                        if (iColumn == iRow) diagonal = rMatrix.pNonzeros[iEntry];                      \
+                        else value -= product;                                                          \
+                    } /*for iEntry in range(iRowBegin, iRowEnd)*/                                       \
+                                                                                                        \
+                pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);          \
             } // for iLocal in range()
 
-            if (isWorthParallelizing(pPartition->size(iPartition), threadCount)) {
-                #pragma omp parallel for
+            const auto threadCount = threadCounts[iPartition];
+            if (1 < threadCount) {
+                #pragma omp parallel for num_threads(threadCount)
                 MCGS_SWEEP
             } else {
                 MCGS_SWEEP
