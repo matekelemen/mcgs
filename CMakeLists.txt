@@ -33,7 +33,7 @@ if (OpenMP_CXX_FOUND)
     target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
-if (CMAKE_CXX_COMPILER_IF MATCHES "GNU|Clang")
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE
                            -Wall -Wpedantic -Wextra -Werror)
 endif()
