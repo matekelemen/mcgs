@@ -3,14 +3,26 @@
 // --- STL Includes ---
 #include <vector> // std::vector
 #include <cstddef> // std::size_t, std::ptrdiff_t
+#include <iterator> // std::distance
 
 
 namespace mcgs {
 
 
-template <class TIndex, class TColor>
+template <class TIndex>
 class Partition
 {
+private:
+    std::vector<TIndex> _partitionExtents;
+
+    std::vector<TIndex> _rowIndices;
+
+    Partition() = delete;
+    Partition(Partition&&) = delete;
+    Partition(const Partition&) = delete;
+    Partition& operator=(Partition&&) = delete;
+    Partition& operator=(const Partition&) = delete;
+
 public:
     using value_type = TIndex;
     using reference = TIndex&;
@@ -20,30 +32,23 @@ public:
     using difference_type = std::ptrdiff_t;
     using size_type = std::size_t;
 
-    Partition(const TColor* pColors, const TIndex columnCount) noexcept;
+    template <class TColor>
+    Partition(const TColor* pColors, const TIndex columnCount);
 
-    size_type size() const noexcept;
+    Partition(std::vector<TIndex>&& rPartitionExtents,
+              std::vector<TIndex>&& rRowIndices) noexcept;
 
-    size_type size(const size_type iPartition) const noexcept;
+    size_type size() const noexcept
+    {return _partitionExtents.size() - 1;}
 
-    iterator begin(const size_type iPartition) noexcept;
+    size_type size(const size_type iPartition) const noexcept
+    {return std::distance(this->begin(iPartition), this->end(iPartition));}
 
-    iterator end(const size_type iPartition) noexcept;
+    const_iterator begin(const size_type iPartition) const noexcept
+    {return &_rowIndices[_partitionExtents[iPartition]];}
 
-    const_iterator begin(const size_type iPartition) const noexcept;
-
-    const_iterator end(const size_type iPartition) const noexcept;
-
-private:
-    std::vector<TIndex> _partitionExtents;
-
-    std::vector<TIndex> _partitions;
-
-    Partition() = delete;
-    Partition(Partition&&) = delete;
-    Partition(const Partition&) = delete;
-    Partition& operator=(Partition&&) = delete;
-    Partition& operator=(const Partition&) = delete;
+    const_iterator end(const size_type iPartition) const noexcept
+    {return &_rowIndices[_partitionExtents[iPartition + 1]];}
 };
 
 

@@ -1,10 +1,12 @@
+// --- External Includes ---
+#include <omp.h> // omp_get_num_threads
+
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::solve, mcgs::CSRAdaptor
 #include "partition.hpp" // mcgs::Partition
 
 // --- STL Includes ---
 #include <cstddef> // std::size_t
-#include <omp.h>
 #include <vector> // std::vector
 #include <algorithm> // std::copy
 #include <cmath> // std::sqrt
@@ -88,11 +90,11 @@ int solve(TValue* pSolution,
 }
 
 
-template <class TIndex, class TValue, class TColor>
+template <class TIndex, class TValue>
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
-          const Partition<TIndex,TColor>* pPartition,
+          const Partition<TIndex>* pPartition,
           const SolveSettings<TIndex,TValue> settings)
 {
     // Serial version
@@ -149,22 +151,21 @@ int solve(TValue* pSolution,
 }
 
 
-#define MCGS_INSTANTIATE_SOLVE(TIndex, TValue, TColor)                          \
-    template int solve<TIndex,TValue,TColor>(TValue*,                           \
-                                             const CSRAdaptor<TIndex,TValue>&,  \
-                                             const TValue*,                     \
-                                             const Partition<TIndex,TColor>*,   \
-                                             const SolveSettings<TIndex,TValue>);
+#define MCGS_INSTANTIATE_SOLVE(TIndex, TValue)                              \
+    template int solve<TIndex,TValue>(TValue*,                              \
+                                      const CSRAdaptor<TIndex,TValue>&,     \
+                                      const TValue*,                        \
+                                      const SolveSettings<TIndex,TValue>);  \
+    template int solve<TIndex,TValue>(TValue*,                              \
+                                      const CSRAdaptor<TIndex,TValue>&,     \
+                                      const TValue*,                        \
+                                      const Partition<TIndex>*,             \
+                                      const SolveSettings<TIndex,TValue>);
 
-MCGS_INSTANTIATE_SOLVE(int, double, unsigned);
-
-MCGS_INSTANTIATE_SOLVE(long, double, unsigned);
-
-MCGS_INSTANTIATE_SOLVE(unsigned, double, unsigned);
-
-MCGS_INSTANTIATE_SOLVE(std::size_t, double, unsigned);
-
-MCGS_INSTANTIATE_SOLVE(std::size_t, double, std::size_t);
+MCGS_INSTANTIATE_SOLVE(int, double);
+MCGS_INSTANTIATE_SOLVE(long, double);
+MCGS_INSTANTIATE_SOLVE(unsigned, double);
+MCGS_INSTANTIATE_SOLVE(std::size_t, double);
 
 #undef MCGS_INSTANTIATE_SOLVE
 

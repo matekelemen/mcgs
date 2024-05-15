@@ -61,7 +61,7 @@ struct CSRAdaptor
 };
 
 
-template <class TIndex, class TColor>
+template <class TIndex>
 struct Partition;
 
 
@@ -72,26 +72,33 @@ int color(TColor* pColors,
 
 
 template <class TIndex, class TColor>
-[[nodiscard]] Partition<TIndex,TColor>* makePartition(const TColor* pColors,
-                                                      const TIndex columnCount);
+[[nodiscard]] Partition<TIndex>* makePartition(const TColor* pColors,
+                                               const TIndex columnCount);
 
 
-template <class TIndex, class TColor>
-void destroyPartition(Partition<TIndex,TColor>* pPartition);
+template <class TIndex>
+void destroyPartition(Partition<TIndex>* pPartition);
 
 
-template <class TIndex, class TValue, class TColor>
-int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
-            TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
-            TValue* pRHS,
-            Partition<TIndex,TColor>* pPartition);
+template <class TIndex, class TValue>
+[[nodiscard]] Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
+                                         TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
+                                         TValue* pRHS,
+                                         const Partition<TIndex>* pPartition);
 
 
-template <class TIndex, class TValue, class TColor>
+template <class TIndex, class TValue>
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
-          const Partition<TIndex,TColor>* pPartition,
+          const SolveSettings<TIndex,TValue> settings);
+
+
+template <class TIndex, class TValue>
+int solve(TValue* pSolution,
+          const CSRAdaptor<TIndex,TValue>& rMatrix,
+          const TValue* pRHS,
+          const Partition<TIndex>* pPartition,
           const SolveSettings<TIndex,TValue> settings);
 
 

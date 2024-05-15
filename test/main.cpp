@@ -33,6 +33,8 @@ void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix
 
 int main(int argc, const char* const * argv)
 {
+    // --- Reading ---
+
     if (argc != 3) {
         std::cerr << "Expecting exactly 2 arguments, but got " << argc << "\n";
         return MCGS_FAILURE;
@@ -87,7 +89,7 @@ int main(int argc, const char* const * argv)
     adaptor.pColumnIndices  = pMatrix->columnIndices.data();
     adaptor.pNonzeros       = pMatrix->nonzeros.data();
 
-    // Allocate, initialize, define settings and color
+    // --- Coloring ---
     std::vector<unsigned> colors(pMatrix->columnCount, std::numeric_limits<unsigned>::max());
 
     {
@@ -136,27 +138,48 @@ int main(int argc, const char* const * argv)
         } // if conflicts
     } // destroy conflicts, palette
 
-    // Relax
-    std::vector<mcgs::TestCSRMatrix::Value> solution(adaptor.columnCount, 0.0);
-    {
-        auto* pPartition = mcgs::makePartition(colors.data(), adaptor.columnCount);
-        if (!pPartition) {
-            std::cerr << "partitioning failed\n";
-            return MCGS_FAILURE;
-        }
-        mcgs::reorder(pMatrix->rowCount, pMatrix->columnCount, pMatrix->nonzeroCount,
-                      pMatrix->rowExtents.data(), pMatrix->columnIndices.data(), pMatrix->nonzeros.data(),
-                      pVector->data(),
-                      pPartition);
-        //print(adaptor);
-
-        mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
-        settings.maxIterations = 1e2;
-        settings.verbosity = 3;
-        mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings);
-
-        mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pPartition);
+    // --- Partitioning ---
+    auto* pPartition = mcgs::makePartition(colors.data(), adaptor.columnCount);
+    if (!pPartition) {
+        std::cerr << "partitioning failed\n";
+        return MCGS_FAILURE;
     }
+
+    auto* pReorderedPartition = mcgs::reorder(pMatrix->rowCount, pMatrix->columnCount, pMatrix->nonzeroCount,
+                                              pMatrix->rowExtents.data(), pMatrix->columnIndices.data(), pMatrix->nonzeros.data(),
+                                              pVector->data(),
+                                              pPartition);
+    if (!pReorderedPartition) {
+        std::cerr << "partition reordering failed\n";
+        return MCGS_FAILURE;
+    }
+
+    // --- Relaxation ---
+    std::vector<mcgs::TestCSRMatrix::Value> solution(adaptor.columnCount);
+    mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
+    settings.maxIterations = 1e2;
+    settings.verbosity = 1;
+
+    // Serial relaxation
+    std::fill(solution.begin(), solution.end(), 0.0);
+    {
+        mcgs::solve(solution.data(), adaptor, pVector->data(), settings);
+    }
+
+    // Parallel relaxation
+    std::fill(solution.begin(), solution.end(), 0.0);
+    {
+        mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings);
+    }
+
+    // Reordered parallel relaxation
+    std::fill(solution.begin(), solution.end(), 0.0);
+    {
+        mcgs::solve(solution.data(), adaptor, pVector->data(), pReorderedPartition, settings);
+    }
+
+    mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pReorderedPartition);
+    mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pPartition);
 
     return MCGS_SUCCESS;
 }

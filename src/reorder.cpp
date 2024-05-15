@@ -11,12 +11,16 @@
 namespace mcgs {
 
 
-template <class TIndex, class TValue, class TColor>
-int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
-            TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
-            TValue* pRHS,
-            Partition<TIndex,TColor>* pPartition)
+template <class TIndex, class TValue>
+Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
+                           TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
+                           TValue* pRHS,
+                           const Partition<TIndex>* pPartition)
 {
+    // Allocate array for the new partition extents
+    std::vector<TIndex> newPartitionExtents(pPartition->size() + 1);
+
+    // Allocate temporary matrix
     const auto partitionCount = pPartition->size();
     std::vector<TIndex> newRowExtents(rowCount + 1);
     std::vector<TIndex> newColumnIndices(nonzeroCount);
@@ -45,8 +49,9 @@ int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzer
     for (std::size_t iPartition=0; iPartition<partitionCount; ++iPartition) {
         auto itPartitionBegin = pPartition->begin(iPartition);
         const auto partitionSize = pPartition->size(iPartition);
+        newPartitionExtents[iPartition] = iNewRowBegin;
 
-        //#pragma omp parallel for
+        #pragma omp parallel for
         for (std::remove_const_t<decltype(partitionSize)> iLocal=0; iLocal<partitionSize; ++iLocal) {
             const TIndex iOldRow = itPartitionBegin[iLocal];
             const TIndex iNewRow = iNewRowBegin + iLocal;
@@ -63,10 +68,10 @@ int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzer
             std::swap(pRHS[iOldRow], pRHS[iNewRow]);
         } // for iLocal in range(parititionSize)
 
-        std::iota(itPartitionBegin, itPartitionBegin + partitionSize, iNewRowBegin);
         iNewRowBegin += partitionSize;
     } // for iPartition in range(partitionCount)
 
+    newPartitionExtents.back() = iNewRowBegin;
     std::copy(newRowExtents.begin(), newRowExtents.end(), pRowExtents);
     std::copy(newNonzeros.begin(), newNonzeros.end(), pNonzeros);
     std::transform(newColumnIndices.begin(),
@@ -76,25 +81,25 @@ int reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzer
                         return columnMap[iOldColumn];
                    });
 
-    return MCGS_SUCCESS;
+    // Allocate arrays for the new partition
+    // and assign the new row indices
+    std::vector<TIndex> newRowIndices(rowCount);
+    std::iota(newRowIndices.begin(), newRowIndices.end(), TIndex(0));
+
+    return new Partition<TIndex>(std::move(newPartitionExtents), std::move(newRowIndices));
 }
 
 
-#define MCGS_INSTANTIATE_REORDER(TIndex, TValue, TColor)                                    \
-    template int reorder<TIndex,TValue,TColor>(const TIndex, const TIndex, const TIndex,    \
-                                               TIndex*, TIndex*, TValue*,                   \
-                                               TValue*,                                     \
-                                               Partition<TIndex,TColor>*);
+#define MCGS_INSTANTIATE_REORDER(TIndex, TValue)                                                    \
+    template Partition<TIndex>* reorder<TIndex,TValue>(const TIndex, const TIndex, const TIndex,    \
+                                        TIndex*, TIndex*, TValue*,                                  \
+                                        TValue*,                                                    \
+                                        const Partition<TIndex>*);
 
-MCGS_INSTANTIATE_REORDER(int, double, unsigned);
-
-MCGS_INSTANTIATE_REORDER(long, double, unsigned);
-
-MCGS_INSTANTIATE_REORDER(unsigned, double, unsigned);
-
-MCGS_INSTANTIATE_REORDER(std::size_t, double, unsigned);
-
-MCGS_INSTANTIATE_REORDER(std::size_t, double, std::size_t);
+MCGS_INSTANTIATE_REORDER(int, double);
+MCGS_INSTANTIATE_REORDER(long, double);
+MCGS_INSTANTIATE_REORDER(unsigned, double);
+MCGS_INSTANTIATE_REORDER(std::size_t, double);
 
 #undef MCGS_INSTANTIATE_REORDER
 

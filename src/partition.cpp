@@ -12,10 +12,11 @@
 namespace mcgs {
 
 
-template <class TIndex, class TColor>
-Partition<TIndex,TColor>::Partition(const TColor* pColors, const TIndex columnCount) noexcept
+template <class TIndex>
+template <class TColor>
+Partition<TIndex>::Partition(const TColor* pColors, const TIndex columnCount)
     : _partitionExtents(1, 0),
-      _partitions()
+      _rowIndices()
 {
     std::unordered_map<
         TColor,
@@ -30,95 +31,55 @@ Partition<TIndex,TColor>::Partition(const TColor* pColors, const TIndex columnCo
             .push_back(iColumn);                            // <== insert the column index into the mapped vector
     } // for iColumn in range(columnCount)
 
-    _partitions.reserve(columnCount);
+    _rowIndices.reserve(columnCount);
     for ([[maybe_unused]] const auto& [iColor, rColumns] : partitions) {
-        const std::size_t iPartitionBegin = _partitions.size();
-        _partitions.resize(iPartitionBegin + rColumns.size());
+        const std::size_t iPartitionBegin = _rowIndices.size();
+        _rowIndices.resize(iPartitionBegin + rColumns.size());
 
-        _partitionExtents.push_back(_partitions.size());
-        std::copy(rColumns.begin(), rColumns.end(), _partitions.begin() + iPartitionBegin);
+        _partitionExtents.push_back(_rowIndices.size());
+        std::copy(rColumns.begin(), rColumns.end(), _rowIndices.begin() + iPartitionBegin);
     }
 }
 
 
+template <class TIndex>
+Partition<TIndex>::Partition(std::vector<TIndex>&& rPartitionExtents,
+                             std::vector<TIndex>&& rRowIndices) noexcept
+    : _partitionExtents(std::move(rPartitionExtents)),
+      _rowIndices(std::move(rRowIndices))
+{}
+
+
 template <class TIndex, class TColor>
-typename Partition<TIndex,TColor>::size_type
-Partition<TIndex,TColor>::size() const noexcept
+[[nodiscard]] Partition<TIndex>* makePartition(const TColor* pColors,
+                                               const TIndex columnCount)
 {
-    return _partitionExtents.size() - 1;
+    return new Partition<TIndex>(pColors, columnCount);
 }
 
 
-template <class TIndex, class TColor>
-typename Partition<TIndex,TColor>::size_type
-Partition<TIndex,TColor>::size(const size_type iPartition) const noexcept
-{
-    return std::distance(this->begin(iPartition), this->end(iPartition));
-}
-
-
-template <class TIndex, class TColor>
-typename Partition<TIndex,TColor>::const_iterator
-Partition<TIndex,TColor>::begin(const size_type iPartition) const noexcept
-{
-    return &_partitions[_partitionExtents[iPartition]];
-}
-
-
-template <class TIndex, class TColor>
-typename Partition<TIndex,TColor>::const_iterator
-Partition<TIndex,TColor>::end(const size_type iPartition) const noexcept
-{
-    return &_partitions[_partitionExtents[iPartition + 1]];
-}
-
-
-template <class TIndex, class TColor>
-typename Partition<TIndex,TColor>::iterator
-Partition<TIndex,TColor>::begin(const size_type iPartition) noexcept
-{
-    return &_partitions[_partitionExtents[iPartition]];
-}
-
-
-template <class TIndex, class TColor>
-typename Partition<TIndex,TColor>::iterator
-Partition<TIndex,TColor>::end(const size_type iPartition) noexcept
-{
-    return &_partitions[_partitionExtents[iPartition + 1]];
-}
-
-
-template <class TIndex, class TColor>
-[[nodiscard]] Partition<TIndex,TColor>* makePartition(const TColor* pColors,
-                                                      const TIndex columnCount)
-{
-    return new Partition<TIndex,TColor>(pColors, columnCount);
-}
-
-
-template <class TIndex, class TColor>
-void destroyPartition(Partition<TIndex,TColor>* pPartition)
+template <class TIndex>
+void destroyPartition(Partition<TIndex>* pPartition)
 {
     delete pPartition;
 }
 
 
-#define MCGS_INSTANTIATE_PARTITION(TIndex, TColor)                                                  \
-    template Partition<TIndex,TColor>* makePartition<TIndex,TColor>(const TColor*, const TIndex);   \
-    template void destroyPartition<TIndex,TColor>(Partition<TIndex,TColor>*);                       \
-    template class Partition<TIndex,TColor>
+#define MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, TColor)                                  \
+    template Partition<TIndex>* makePartition<TIndex,TColor>(const TColor*, const TIndex);
 
-MCGS_INSTANTIATE_PARTITION(int, unsigned);
+#define MCGS_INSTANTIATE_PARTITION(TIndex)                      \
+    MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, unsigned)        \
+    MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, std::size_t)     \
+    template void destroyPartition<TIndex>(Partition<TIndex>*); \
+    template class Partition<TIndex>
 
-MCGS_INSTANTIATE_PARTITION(long, unsigned);
+MCGS_INSTANTIATE_PARTITION(int);
+MCGS_INSTANTIATE_PARTITION(long);
+MCGS_INSTANTIATE_PARTITION(unsigned);
+MCGS_INSTANTIATE_PARTITION(std::size_t);
 
-MCGS_INSTANTIATE_PARTITION(unsigned, unsigned);
-
-MCGS_INSTANTIATE_PARTITION(std::size_t, unsigned);
-
-MCGS_INSTANTIATE_PARTITION(std::size_t, std::size_t);
-
+#undef MCGS_INSTANTIATE_PARTITION_FACTORY
 #undef MCGS_INSTANTIATE_PARTITION
 
 
