@@ -65,31 +65,27 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
     std::vector<MCGS_MUTEX> mutexes;
     mutexes.reserve(neighbors.size());
     for (std::size_t iLock=0ul; iLock<neighbors.size(); ++iLock) {
-        mutexes.emplace_back();
-        MCGS_INITIALIZE_MUTEX(mutexes.back());
+        MCGS_INITIALIZE_MUTEX(mutexes.emplace_back());
     }
 
-    #pragma omp parallel
-    {
-        #pragma omp for
-        for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
-            const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
-            const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
+    #pragma omp parallel for
+    for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+        const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
+        const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
 
-            for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
-                const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-                const TValue value = rMatrix.pNonzeros[iEntry];
-                if (value && iRow != iColumn) {
-                    MCGS_ACQUIRE_MUTEX(mutexes[std::min(iRow, iColumn)]);
-                    MCGS_ACQUIRE_MUTEX(mutexes[std::max(iRow, iColumn)]);
-                    neighbors[iRow].insert(iColumn);
-                    neighbors[iColumn].insert(iRow);
-                    MCGS_RELEASE_MUTEX(mutexes[std::max(iRow, iColumn)]);
-                    MCGS_RELEASE_MUTEX(mutexes[std::min(iRow, iColumn)]);
-                }
-            } // for iEntry in range(iRowBegin, iRowEnd)
-        } // for iRow in range(rowCount)
-    } // omp parallel
+        for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
+            const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
+            const TValue value = rMatrix.pNonzeros[iEntry];
+            if (value && iRow != iColumn) {
+                MCGS_ACQUIRE_MUTEX(mutexes[std::min(iRow, iColumn)]);
+                MCGS_ACQUIRE_MUTEX(mutexes[std::max(iRow, iColumn)]);
+                neighbors[iRow].insert(iColumn);
+                neighbors[iColumn].insert(iRow);
+                MCGS_RELEASE_MUTEX(mutexes[std::max(iRow, iColumn)]);
+                MCGS_RELEASE_MUTEX(mutexes[std::min(iRow, iColumn)]);
+            }
+        } // for iEntry in range(iRowBegin, iRowEnd)
+    } // for iRow in range(rowCount)
 
     for (auto& rLock : mutexes) {
         MCGS_DEINITIALIZE_MUTEX(rLock);
@@ -228,7 +224,7 @@ int color(TColor* pColors,
 
     // Collect all edges of the graph
     // (symmetric version of the input matrix)
-    std::vector<NeighborSet<TIndex>> neighbors = collectNeighbors(rMatrix);
+    const std::vector<NeighborSet<TIndex>> neighbors = collectNeighbors(rMatrix);
 
     // Find the minimum and maximum vertex degrees.
     TIndex minDegree = std::numeric_limits<TIndex>::max();
@@ -277,17 +273,11 @@ int color(TColor* pColors,
         uncolored.push_back(iVertex);
     }
 
-    MCGS_MUTEX uncoloredLock;
-    MCGS_INITIALIZE_MUTEX(uncoloredLock);
-    std::vector<TIndex> erasedVertices;
-
     // Keep coloring until all vertices are colored.
-    using UniformDistribution = std::uniform_int_distribution<TColor>;
     std::size_t iterationCount = 0ul;
     int stallCounter = 0;
 
     while (!uncolored.empty()) {
-        erasedVertices.clear();
         const std::size_t visitCount = uncolored.size();
 
         if (3 <= settings.verbosity) {
@@ -305,7 +295,7 @@ int color(TColor* pColors,
             for (std::size_t iVisit=0ul; iVisit<uncolored.size(); ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
                 const TColor paletteSize = palettes[iVertex].palette.size();
-                const TColor colorIndex = UniformDistribution(TColor(0), paletteSize)(randomGenerator);
+                const TColor colorIndex = std::uniform_int_distribution<TColor>(TColor(0), paletteSize)(randomGenerator);
                 pColors[iVertex] = palettes[iVertex].palette[colorIndex];
             }
         } // omp parallel
