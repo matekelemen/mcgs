@@ -178,20 +178,6 @@ int main(int argc, const char* const * argv)
         }
     }
 
-    mcgs::Partition<mcgs::TestCSRMatrix::Index>* pReorderedPartition = nullptr;
-
-    {
-        MCGS_SCOPED_TIMER("reordering");
-        pReorderedPartition = mcgs::reorder(pMatrix->rowCount, pMatrix->columnCount, pMatrix->nonzeroCount,
-                                            pMatrix->rowExtents.data(), pMatrix->columnIndices.data(), pMatrix->nonzeros.data(),
-                                            pVector->data(),
-                                            pPartition);
-        if (!pReorderedPartition) {
-            std::cerr << "partition reordering failed\n";
-            return MCGS_FAILURE;
-        }
-    }
-
     // --- Relaxation ---
     std::vector<mcgs::TestCSRMatrix::Value> solution(adaptor.columnCount);
     mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
@@ -213,6 +199,19 @@ int main(int argc, const char* const * argv)
     }
 
     // Reordered parallel relaxation
+    mcgs::Partition<mcgs::TestCSRMatrix::Index>* pReorderedPartition = nullptr;
+    {
+        MCGS_SCOPED_TIMER("reordering");
+        pReorderedPartition = mcgs::reorder(pMatrix->rowCount, pMatrix->columnCount, pMatrix->nonzeroCount,
+                                            pMatrix->rowExtents.data(), pMatrix->columnIndices.data(), pMatrix->nonzeros.data(),
+                                            pVector->data(),
+                                            pPartition);
+        if (!pReorderedPartition) {
+            std::cerr << "partition reordering failed\n";
+            return MCGS_FAILURE;
+        }
+    }
+
     std::fill(solution.begin(), solution.end(), 0.0);
     {
         MCGS_SCOPED_TIMER("reordered parallel relaxation");
