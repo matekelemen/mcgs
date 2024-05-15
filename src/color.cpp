@@ -333,7 +333,7 @@ int color(TColor* pColors,
                 }
             } // for iVertex in uncolored
 
-            #pragma omp for
+            #pragma omp for nowait
             for (std::size_t iEntry=0; iEntry<verticesToErase.size(); ++iEntry) {
                 const auto iVertex = verticesToErase[iEntry];
                 for (TIndex iNeighbor : neighbors[iVertex]) {
