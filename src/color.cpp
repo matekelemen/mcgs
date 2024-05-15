@@ -153,9 +153,8 @@ struct Palette
 }; // struct Palette
 
 
-template <class TIndex, class TColor>
-bool extendPalette(Palette<TColor>& rPalette,
-                   const TIndex maxVertexDegree)
+template <class TColor>
+bool extendPalette(Palette<TColor>& rPalette)
 {
     //if (rPalette.palette.size() < maxVertexDegree) {
         // Find the largest color the vertex ever had, and add
@@ -337,7 +336,7 @@ int color(TColor* pColors,
                     if (itNeighbor != locks.end()) {
                         omp_set_lock(&itNeighbor->second);
                         removeFromPalette(pColors[iVertex], palettes[iNeighbor]);
-                        if (palettes[iNeighbor].palette.empty()) extendPalette(palettes[iNeighbor], maxDegree);
+                        if (palettes[iNeighbor].palette.empty()) extendPalette(palettes[iNeighbor]);
                         omp_unset_lock(&itNeighbor->second);
                     } // if itNeighbor
                 } // for iNeighbor in neighbors[iVertex]
@@ -364,13 +363,11 @@ int color(TColor* pColors,
 
         if (uncolored.size() == visitCount) {
             // Failed to color any vertices => extend the palette of some random vertices
-            bool success = false;
-            const TIndex maxExtensions = std::max(TIndex(1), TIndex(uncolored.size() / 1));
+            //const TIndex maxExtensions = std::max(TIndex(1), TIndex(uncolored.size() / 1));
             TIndex extensionCounter = 0;
 
             for (TIndex iVertex : uncolored) {
-                if (extendPalette(palettes[iVertex], maxDegree)) {
-                    success = true;
+                if (extendPalette(palettes[iVertex])) {
                     break;
                 }
             }
