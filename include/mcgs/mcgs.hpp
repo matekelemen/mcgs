@@ -88,6 +88,10 @@ template <class TIndex, class TValue>
 
 
 template <class TIndex, class TValue>
+int revertReorder(TValue* pRHS, const Partition<TIndex>* pPartition);
+
+
+template <class TIndex, class TValue>
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,

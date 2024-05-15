@@ -90,11 +90,25 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
 }
 
 
+template <class TIndex, class TValue>
+int revertReorder(TValue* pRHS, const Partition<TIndex>* pPartition)
+{
+    typename Partition<TIndex>::size_type iNewRow = 0;
+    for (typename Partition<TIndex>::size_type iPartition=0; iPartition<pPartition->size(); ++iPartition) {
+        for (auto itPartition=pPartition->begin(iPartition); itPartition!=pPartition->end(iPartition); ++itPartition) {
+            std::swap(pRHS[iNewRow++], pRHS[*itPartition]);
+        }
+    }
+    return MCGS_SUCCESS;
+}
+
+
 #define MCGS_INSTANTIATE_REORDER(TIndex, TValue)                                                    \
     template Partition<TIndex>* reorder<TIndex,TValue>(const TIndex, const TIndex, const TIndex,    \
                                         TIndex*, TIndex*, TValue*,                                  \
                                         TValue*,                                                    \
-                                        const Partition<TIndex>*);
+                                        const Partition<TIndex>*);                                  \
+    template int revertReorder<TIndex,TValue>(TValue*,const Partition<TIndex>*)
 
 MCGS_INSTANTIATE_REORDER(int, double);
 MCGS_INSTANTIATE_REORDER(long, double);
