@@ -168,6 +168,7 @@ for argument in "-H$sourceDir"                                          \
                 "-DOPENMP_C:STRING=${toolchainBin}/clang"               \
                 "-DOPENMP_CXX:STRING=${toolchainBin}/clang++"           \
                 "-DCMAKE_COLOR_DIAGNOSTICS:BOOL=ON"                     \
+                "-DMCGS_BUILD_TESTS=ON"                                \
                 "$ccacheFlag"; do
     if ! [ -z "$argument" ]; then
         cmakeArguments+=("$argument")
