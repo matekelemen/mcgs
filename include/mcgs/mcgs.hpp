@@ -62,7 +62,7 @@ struct CSRAdaptor
 
 
 template <class TIndex>
-struct Partition;
+class Partition;
 
 
 template <class TIndex, class TValue, class TColor>

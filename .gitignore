@@ -6,6 +6,7 @@
 !license
 !readme
 !build.sh
+!mac_build.sh
 
 !include
 !include/mcgs
