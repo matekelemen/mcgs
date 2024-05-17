@@ -64,7 +64,7 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
 {
     std::vector<NeighborSet<TIndex>> neighbors(rMatrix.columnCount);
 
-    //#pragma omp parallel for
+    #pragma omp parallel for
     for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
         const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
@@ -75,23 +75,19 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
             if (value && iRow != iColumn) {
                 {
                     MCGS_ACQUIRE_MUTEX(rMutexes[iRow]);
-                    const auto itInsert = std::lower_bound(neighbors[iRow].begin(),
-                                                           neighbors[iRow].end(),
-                                                           iColumn);
-                    const bool insert = itInsert == neighbors[iRow].end() &&
-                                                    (neighbors[iRow].empty() || neighbors[iRow].back() != iColumn);
-                    if (insert) neighbors[iRow].insert(itInsert, iColumn);
+                    const auto [itBegin, itEnd] = std::equal_range(neighbors[iRow].begin(),
+                                                                   neighbors[iRow].end(),
+                                                                   iColumn);
+                    if (itBegin == itEnd) neighbors[iRow].insert(itBegin, iColumn);
                     MCGS_RELEASE_MUTEX(rMutexes[iRow]);
                 }
 
                 {
                     MCGS_ACQUIRE_MUTEX(rMutexes[iColumn]);
-                    const auto itInsert = std::lower_bound(neighbors[iColumn].begin(),
-                                                           neighbors[iColumn].end(),
-                                                           iRow);
-                    const bool insert = itInsert == neighbors[iColumn].end() &&
-                                                    (neighbors[iColumn].empty() || neighbors[iColumn].back() != iRow);
-                    if (insert) neighbors[iColumn].insert(itInsert, iRow);
+                    const auto [itBegin, itEnd] = std::equal_range(neighbors[iColumn].begin(),
+                                                                   neighbors[iColumn].end(),
+                                                                   iRow);
+                    if (itBegin == itEnd) neighbors[iColumn].insert(itBegin, iRow);
                     MCGS_RELEASE_MUTEX(rMutexes[iColumn]);
                 }
             }
@@ -174,7 +170,6 @@ void removeFromPalette(const TColor color,
                        Palette<TColor>& rPalette)
 {
     // The palette's colors are assumed to be sorted
-    if (!std::is_sorted(rPalette.palette.begin(), rPalette.palette.end())) throw std::runtime_error("");
     const auto [itBegin, itEnd] = std::equal_range(rPalette.palette.begin(),
                                                    rPalette.palette.end(),
                                                    color);
@@ -347,15 +342,9 @@ int color(TColor* pColors,
             const TIndex maxExtensions = std::max(TIndex(1), TIndex(5 * uncolored.size() / 100));
             TIndex extensionCounter = 0;
 
-            for (TIndex iVertex : uncolored) {
-                if (extendPalette(palettes[iVertex]) && ++extensionCounter < maxExtensions) {
-                    break;
-                }
-            }
-
             #pragma omp parallel for reduction(+: extensionCounter)
-            for (TIndex iVertex=0; iVertex<uncoloredCount; ++iVertex) {
-                if (extensionCounter < maxExtensions && extendPalette(palettes[iVertex])) {
+            for (TIndex iUncolored=0; iUncolored<uncoloredCount; ++iUncolored) {
+                if (extensionCounter < maxExtensions && extendPalette(palettes[uncolored[iUncolored]])) {
                     ++extensionCounter;
                 }
             }
