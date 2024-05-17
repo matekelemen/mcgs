@@ -1,5 +1,7 @@
 // --- External Includes ---
+#ifdef MCGS_OPENMP
 #include <omp.h> // omp_get_num_threads
+#endif
 
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::solve, mcgs::CSRAdaptor
@@ -25,7 +27,9 @@ TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
     std::copy(pRHS, pRHS + rMatrix.columnCount, buffer);
     TValue residual = 0;
 
+    #ifdef MCGS_OPENMP
     #pragma omp parallel for reduction(+: residual)
+    #endif
     for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         TValue& rResidualComponent = buffer[iRow];
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
@@ -91,10 +95,16 @@ int solve(TValue* pSolution,
           const SolveSettings<TIndex,TValue> settings)
 {
     // Collect how many threads should execute each partition.
-    const auto maxThreadCount = omp_get_max_threads();
+    #ifdef MCGS_OPENMP
+    const int maxThreadCount = omp_get_max_threads();
+    #else
+    const int maxThreadCount = 1;
+    #endif
     std::vector<int> threadCounts(pPartition->size());
 
+    #ifdef MCGS_OPENMP
     #pragma omp parallel for
+    #endif
     for (int iPartition=0; iPartition<static_cast<int>(pPartition->size()); ++iPartition) {
         std::size_t nonzeroCount = 0ul;
         for (auto itPartition=pPartition->begin(iPartition); itPartition!=pPartition->end(iPartition); ++itPartition) {
@@ -137,7 +147,9 @@ int solve(TValue* pSolution,
 
             const auto threadCount = threadCounts[iPartition];
             if (1 < threadCount) {
+                #ifdef MCGS_OPENMP
                 #pragma omp parallel for num_threads(threadCount)
+                #endif
                 MCGS_SWEEP
             } else {
                 MCGS_SWEEP
@@ -160,6 +172,10 @@ int solve(TValue* pSolution,
 
 
 #define MCGS_INSTANTIATE_SOLVE(TIndex, TValue)                              \
+    template TValue residual(const CSRAdaptor<TIndex,TValue>&,              \
+                             const TValue*,                                 \
+                             const TValue*,                                 \
+                             TValue*) noexcept;                             \
     template int solve<TIndex,TValue>(TValue*,                              \
                                       const CSRAdaptor<TIndex,TValue>&,     \
                                       const TValue*,                        \

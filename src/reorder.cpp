@@ -47,13 +47,17 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
 
     std::vector<TIndex> columnMap(columnCount);
 
+    #ifdef MCGS_OPENMP
     #pragma omp parallel
+    #endif
     {
         for (std::size_t iPartition=0; iPartition<partitionCount; ++iPartition) {
             auto itPartitionBegin = pPartition->begin(iPartition);
             const auto partitionSize = pPartition->size(iPartition);
 
+            #ifdef MCGS_OPENMP
             #pragma omp for nowait
+            #endif
             for (std::remove_const_t<decltype(partitionSize)> iLocal=0; iLocal<partitionSize; ++iLocal) {
                 const TIndex iOldRow = itPartitionBegin[iLocal];
                 const TIndex iNewRow = newPartitionExtents[iPartition] + iLocal;

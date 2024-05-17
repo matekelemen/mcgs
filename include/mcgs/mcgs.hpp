@@ -92,6 +92,13 @@ int revertReorder(TValue* pRHS, const Partition<TIndex>* pPartition);
 
 
 template <class TIndex, class TValue>
+TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
+                const TValue* pSolution,
+                const TValue* pRHS,
+                TValue* buffer) noexcept;
+
+
+template <class TIndex, class TValue>
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,

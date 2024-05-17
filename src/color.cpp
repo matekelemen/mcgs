@@ -1,8 +1,6 @@
-// --- External Includes ---
-#include <omp.h>
-
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::color
+#include "multithreading.hpp"
 
 // --- STL Includes ---
 #include <vector> // std::vector
@@ -43,13 +41,6 @@ struct IndexPairTraits
 } // namespace detail
 
 
-#define MCGS_MUTEX omp_lock_t
-#define MCGS_INITIALIZE_MUTEX(rMutex) omp_init_lock(&rMutex)
-#define MCGS_ACQUIRE_MUTEX(rMutex) omp_set_lock(&rMutex)
-#define MCGS_RELEASE_MUTEX(rMutex) omp_unset_lock(&rMutex)
-#define MCGS_DEINITIALIZE_MUTEX(rMutex) omp_destroy_lock(&rMutex)
-
-
 // @todo change to a more efficient set
 template <class TIndex>
 using NeighborSet = std::vector<TIndex>;
@@ -58,11 +49,13 @@ using NeighborSet = std::vector<TIndex>;
 /// @brief Collect all edges of an undirected graph.
 template <class TIndex, class TValue>
 std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue>& rMatrix,
-                                                  std::vector<MCGS_MUTEX>& rMutexes)
+                                                  [[maybe_unused]] MCGS_MUTEX_ARRAY& rMutexes)
 {
     std::vector<NeighborSet<TIndex>> neighbors(rMatrix.columnCount);
 
+    #ifdef MCGS_OPENMP
     #pragma omp parallel for
+    #endif
     for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
         const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
@@ -213,8 +206,8 @@ int color(TColor* pColors,
         return MCGS_FAILURE;
     }
 
-    std::vector<MCGS_MUTEX> mutexes(rMatrix.rowCount);
-    for (MCGS_MUTEX& rMutex : mutexes) MCGS_INITIALIZE_MUTEX(rMutex);
+    MCGS_MUTEX_ARRAY mutexes(rMatrix.rowCount);
+    for ([[maybe_unused]] MCGS_MUTEX& rMutex : mutexes) MCGS_INITIALIZE_MUTEX(rMutex);
 
     // Collect all edges of the graph
     // (symmetric version of the input matrix)
@@ -224,7 +217,9 @@ int color(TColor* pColors,
     TIndex minDegree = std::numeric_limits<TIndex>::max();
     TIndex maxDegree = 0;
 
+    #ifdef MCGS_OPENMP
     #pragma omp parallel for reduction(min: minDegree) reduction(max: maxDegree)
+    #endif
     for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         const TIndex degree = static_cast<TIndex>(neighbors[iRow].size());
         minDegree = std::min(minDegree, degree);
@@ -254,7 +249,9 @@ int color(TColor* pColors,
     // Initialize the palette of all vertices to a shrunk set
     std::vector<Palette<TColor>> palettes(rMatrix.columnCount);
 
+    #ifdef MCGS_OPENMP
     #pragma omp parallel for
+    #endif
     for (TIndex iVertex=0; iVertex<rMatrix.columnCount; ++iVertex) {
         palettes[iVertex].palette.resize(initialPaletteSize);
         std::iota(palettes[iVertex].palette.begin(), palettes[iVertex].palette.end(), TColor(0));
@@ -283,11 +280,21 @@ int color(TColor* pColors,
         }
 
         // Assign random colors to each remaining vertex from their palette.
+        #ifdef MCGS_OPENMP
         #pragma omp parallel
+        #endif
         {
-            std::mt19937 randomGenerator(omp_get_thread_num());
 
+            #ifdef MCGS_OPENMP
+                const int seed = omp_get_thread_num();
+            #else
+                const int seed = 0;
+            #endif
+            std::mt19937 randomGenerator(seed);
+
+            #ifdef MCGS_OPENMP
             #pragma omp for
+            #endif
             for (TIndex iVisit=0ul; iVisit<uncoloredCount; ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
                 const TColor paletteSize = palettes[iVertex].palette.size();
@@ -295,7 +302,9 @@ int color(TColor* pColors,
                 pColors[iVertex] = palettes[iVertex].palette[colorIndex];
             }
 
+            #ifdef MCGS_OPENMP
             #pragma omp for
+            #endif
             for (TIndex iVisit=0; iVisit<uncoloredCount; ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
                 const bool colored = isColored(iVertex, neighbors.data(), pColors, coloredMask);
@@ -325,7 +334,9 @@ int color(TColor* pColors,
             const TIndex maxExtensions = std::max(TIndex(1), TIndex(5 * uncolored.size() / 100));
             TIndex extensionCounter = 0;
 
+            #ifdef MCGS_OPENMP
             #pragma omp parallel for reduction(+: extensionCounter)
+            #endif
             for (TIndex iUncolored=0; iUncolored<uncoloredCount; ++iUncolored) {
                 if (extensionCounter < maxExtensions && extendPalette(palettes[uncolored[iUncolored]])) {
                     ++extensionCounter;
@@ -346,7 +357,7 @@ int color(TColor* pColors,
         }
     } while (!uncolored.empty());
 
-    for (MCGS_MUTEX& rMutex : mutexes) MCGS_DEINITIALIZE_MUTEX(rMutex);
+    for ([[maybe_unused]] MCGS_MUTEX& rMutex : mutexes) MCGS_DEINITIALIZE_MUTEX(rMutex);
 
     return MCGS_SUCCESS;
 }
@@ -362,12 +373,6 @@ MCGS_INSTANTIATE_COLOR(long, double, unsigned);
 MCGS_INSTANTIATE_COLOR(unsigned, double, unsigned);
 MCGS_INSTANTIATE_COLOR(std::size_t, double, unsigned);
 MCGS_INSTANTIATE_COLOR(std::size_t, double, std::size_t);
-
-#undef MCGS_MUTEX
-#undef MCGS_INITIALIZE_MUTEX
-#undef MCGS_ACQUIRE_MUTEX
-#undef MCGS_RELEASE_MUTEX
-#undef MCGS_DEINITIALIZE_MUTEX
 
 #undef MCGS_INSTANTIATE_COLOR
 

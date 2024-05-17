@@ -13,6 +13,7 @@
 !include/mcgs/mcgs.hpp
 
 !src
+!src/multithreading.hpp
 !src/color.cpp
 !src/partition.hpp
 !src/partition.cpp

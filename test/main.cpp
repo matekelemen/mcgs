@@ -185,19 +185,30 @@ int main(int argc, const char* const * argv)
     settings.maxIterations = 1e2;
     settings.verbosity = 1;
 
+    std::vector<mcgs::TestCSRMatrix::Value> buffer(adaptor.columnCount);
+    const auto initialResidual = mcgs::residual(adaptor, solution.data(), pVector->data(), buffer.data());
+
     // Serial relaxation
     std::fill(solution.begin(), solution.end(), 0.0);
     {
         MCGS_SCOPED_TIMER("serial relaxation");
-        mcgs::solve(solution.data(), adaptor, pVector->data(), settings);
+        if (mcgs::solve(solution.data(), adaptor, pVector->data(), settings) != MCGS_SUCCESS) {
+            std::cerr << "serial relaxation failed\n";
+            return MCGS_FAILURE;
+        }
     }
+    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), pVector->data(), buffer.data()) / initialResidual << "\n";
 
     // Parallel relaxation
     std::fill(solution.begin(), solution.end(), 0.0);
     {
         MCGS_SCOPED_TIMER("parallel relaxation");
-        mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings);
+        if (mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings) != MCGS_SUCCESS) {
+            std::cerr << "parallel relaxation failed\n";
+            return MCGS_FAILURE;
+        }
     }
+    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), pVector->data(), buffer.data()) / initialResidual << "\n";
 
     // Reordered parallel relaxation
     mcgs::Partition<mcgs::TestCSRMatrix::Index>* pReorderedPartition = nullptr;
@@ -208,7 +219,7 @@ int main(int argc, const char* const * argv)
                                             pVector->data(),
                                             pPartition);
         if (!pReorderedPartition) {
-            std::cerr << "partition reordering failed\n";
+            std::cerr << "reordering failed\n";
             return MCGS_FAILURE;
         }
     }
@@ -216,14 +227,19 @@ int main(int argc, const char* const * argv)
     std::fill(solution.begin(), solution.end(), 0.0);
     {
         MCGS_SCOPED_TIMER("reordered parallel relaxation");
-        mcgs::solve(solution.data(), adaptor, pVector->data(), pReorderedPartition, settings);
+        if (mcgs::solve(solution.data(), adaptor, pVector->data(), pReorderedPartition, settings) != MCGS_SUCCESS) {
+            std::cerr << "reordered parallel relaxation failed\n";
+            return MCGS_FAILURE;
+        }
     }
+    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), pVector->data(), buffer.data()) / initialResidual << "\n";
 
     {
         MCGS_SCOPED_TIMER("undo reordering");
         mcgs::revertReorder(solution.data(), pPartition);
     }
 
+    // Cleanup
     mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pReorderedPartition);
     mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pPartition);
 

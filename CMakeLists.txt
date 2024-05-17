@@ -7,10 +7,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Options
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
-option(${PROJECT_NAME_UPPER}_BUILD_TESTS "Compile tests." OFF)
+
+set(${PROJECT_NAME_UPPER}_BUILD_TESTS
+    OFF
+    CACHE BOOL
+    "Compile tests.")
+
+    set(${PROJECT_NAME_UPPER}_SHARED_MEMORY_PARALLELISM
+    "OpenMP"
+    CACHE STRING "Features/libraries to use for shared memory parallelism.")
+set_property(CACHE ${PROJECT_NAME_UPPER}_SHARED_MEMORY_PARALLELISM
+             PROPERTY STRINGS
+             "None"
+             "OpenMP")
 
 # Find dependencies
-find_package(OpenMP)
+if (${PROJECT_NAME_UPPER}_SHARED_MEMORY_PARALLELISM MATCHES "OpenMP")
+    find_package(OpenMP 2 REQUIRED)
+endif()
 
 # Define library
 add_library(${PROJECT_NAME} SHARED)
@@ -29,8 +43,9 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
                       INSTALL_RPATH "$ORIGIN")
 
-if (OpenMP_CXX_FOUND)
+if (${PROJECT_NAME_UPPER}_SHARED_MEMORY_PARALLELISM MATCHES "OpenMP")
     target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE ${PROJECT_NAME_UPPER}_OPENMP)
 endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")

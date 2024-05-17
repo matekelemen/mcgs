@@ -2,7 +2,7 @@
 
 // --- STL Includes ---
 #include <vector> // std::vector
-#include <fstream> // std::ifstream
+#include <istream> // std::istream
 #include <variant> // std::variant
 
 
