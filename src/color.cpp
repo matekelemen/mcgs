@@ -5,11 +5,9 @@
 #include "mcgs/mcgs.hpp" // mcgs::color
 
 // --- STL Includes ---
-#include <stdexcept>
 #include <vector> // std::vector
-#include <unordered_set> // std::unordered_set, std::pair
 #include <cstddef> // std::size_t
-#include <algorithm> // std::min, std::max
+#include <algorithm> // std::min, std::max, std::equal_range
 #include <numeric> // std::iota
 #include <random> // std::mt19937, std::uniform_int_distribution
 #include <iostream> // std::cout, std::cerr
