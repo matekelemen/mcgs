@@ -1,5 +1,9 @@
 #pragma once
 
+
+#define MCGS_EXPORT_SYMBOL __attribute__((visibility ("default")))
+
+
 namespace mcgs {
 
 
@@ -66,21 +70,25 @@ class Partition;
 
 
 template <class TIndex, class TValue, class TColor>
+MCGS_EXPORT_SYMBOL
 int color(TColor* pColors,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const ColorSettings settings);
 
 
 template <class TIndex, class TColor>
+MCGS_EXPORT_SYMBOL
 [[nodiscard]] Partition<TIndex>* makePartition(const TColor* pColors,
                                                const TIndex columnCount);
 
 
 template <class TIndex>
+MCGS_EXPORT_SYMBOL
 void destroyPartition(Partition<TIndex>* pPartition);
 
 
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 [[nodiscard]] Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
                                          TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
                                          TValue* pRHS,
@@ -88,10 +96,12 @@ template <class TIndex, class TValue>
 
 
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 int revertReorder(TValue* pRHS, const Partition<TIndex>* pPartition);
 
 
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
                 const TValue* pSolution,
                 const TValue* pRHS,
@@ -99,6 +109,7 @@ TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
 
 
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
@@ -106,6 +117,7 @@ int solve(TValue* pSolution,
 
 
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
@@ -114,3 +126,6 @@ int solve(TValue* pSolution,
 
 
 } // namespace mcgs
+
+
+#undef MCGS_EXPORT_SYMBOL

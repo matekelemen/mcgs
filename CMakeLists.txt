@@ -41,7 +41,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
                       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-                      INSTALL_RPATH "$ORIGIN")
+                      INSTALL_RPATH "$ORIGIN"
+                      CXX_VISIBILITY_PRESET "hidden")
 
 if (${PROJECT_NAME_UPPER}_SHARED_MEMORY_PARALLELISM MATCHES "OpenMP")
     target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
