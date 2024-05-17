@@ -128,9 +128,8 @@ int solve(TValue* pSolution,
                                                                                                         \
                     for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {                           \
                         const TIndex iColumn = rMatrix.pColumnIndices[iEntry];                          \
-                        const TValue product = rMatrix.pNonzeros[iEntry] * pSolution[iColumn];          \
                         if (iColumn == iRow) diagonal = rMatrix.pNonzeros[iEntry];                      \
-                        else value -= product;                                                          \
+                        else value -= rMatrix.pNonzeros[iEntry] * pSolution[iColumn];                   \
                     } /*for iEntry in range(iRowBegin, iRowEnd)*/                                       \
                                                                                                         \
                 pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);          \
