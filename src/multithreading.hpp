@@ -46,7 +46,7 @@
     #define MCGS_DEINITIALIZE_MUTEX(rMutex) omp_destroy_lock(&rMutex)
 #else
     #define MCGS_MUTEX mcgs::detail::Dummy
-    #define MCGS_MUTEX_ARRAY mcgs::detail::DummyVector<mcgs::detail::Dummy>
+    #define MCGS_MUTEX_ARRAY mcgs::detail::DummyVector<MCGS_MUTEX>
     #define MCGS_INITIALIZE_MUTEX(rMutex)
     #define MCGS_ACQUIRE_MUTEX(rMutex)
     #define MCGS_RELEASE_MUTEX(rMutex)
