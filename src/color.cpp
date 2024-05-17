@@ -108,37 +108,28 @@ bool isColored(const TIndex iVertex,
     const TColor currentColor = pColors[iVertex];
 
     // If there's only one conflict, keep the coloring of the vertex with the higher index.
-    bool conflict = false;
     bool colored = true;
 
     for (const TIndex iNeighbor : pNeighborMap[iVertex]) {
         const TColor neighborColor = pColors[iNeighbor];
         if (neighborColor == currentColor) {
-            if (conflict) {
-                // Multiple conflicts => give up on this vertex.
-                colored = false;
-                break;
-            } else if (iVertex < iNeighbor) {
-                // This is the first conflict, but the current vertex
-                // has a lower index than the neighbor it's in conflict with
-                // => give up on this vertex.
-                conflict = true;
+            if (iVertex < iNeighbor) {
+                // The current vertex has a lower index than the neighbor
+                // it's in conflict with => give up on this vertex.
                 colored = false;
                 break;
             } else if (rColoredMask[iNeighbor]) {
                 // Although the current vertex would win a tiebreaker against
                 // its neighbor it's in conflict with, the neighbor's color is
                 // already set and cannot be changed => give up on this vertex.
-                conflict = true;
                 colored = false;
                 break;
-            } else {
-                // This is the first conflict and the current vertex
-                // has a higher index than its conflicting neighbor,
-                // who is still waiting to be colored, winning the tiebreaker
-                // => hang on to this vertex.
-                conflict = true;
             }
+
+            // Otherwise, the current vertex has a higher index
+            // than its conflicting neighbor, who is still waiting
+            // to be colored, winning the tiebreaker
+            // => hang on to this vertex.
         }
     } // for iNeighbor in neighbors[iVertex]
 
@@ -303,11 +294,7 @@ int color(TColor* pColors,
                 const TColor colorIndex = std::uniform_int_distribution<TColor>(TColor(0), paletteSize)(randomGenerator);
                 pColors[iVertex] = palettes[iVertex].palette[colorIndex];
             }
-        } // omp parallel
 
-        // Check for conflicts and remove colored vertices.
-        #pragma omp parallel
-        {
             #pragma omp for
             for (TIndex iVisit=0; iVisit<uncoloredCount; ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
@@ -328,14 +315,12 @@ int color(TColor* pColors,
                         } // if !coloredMask[iNeighbor]
                     } // for iNeighbor in neighbors[iVertex]
 
-                    MCGS_ACQUIRE_MUTEX(mutexes[iVertex]);
                     coloredMask[iVertex] = true;
-                    MCGS_RELEASE_MUTEX(mutexes[iVertex]);
                 } // if colored
             } // for iVertex in uncolored
         } // omp parallel
 
-        if (uncolored.size() == static_cast<std::size_t>(std::count_if(coloredMask.begin(), coloredMask.end(), [](const auto flag) {return !flag;}))) {
+        if (!uncolored.empty() && uncolored.size() == static_cast<std::size_t>(std::count_if(coloredMask.begin(), coloredMask.end(), [](const auto flag) {return !flag;}))) {
             // Failed to color any vertices => extend the palette of some random vertices
             const TIndex maxExtensions = std::max(TIndex(1), TIndex(5 * uncolored.size() / 100));
             TIndex extensionCounter = 0;
@@ -356,7 +341,7 @@ int color(TColor* pColors,
             } else {
                 stallCounter = 0;
             }
-        } /*if uncolored.size() == visitCount*/ else {
+        } else {
             stallCounter = 0;
         }
     } while (!uncolored.empty());
