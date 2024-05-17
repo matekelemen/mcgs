@@ -121,8 +121,8 @@ int main(int argc, const char* const * argv)
     {
         MCGS_SCOPED_TIMER("coloring");
         mcgs::ColorSettings settings;
-        settings.verbosity = 1;
-        settings.shrinkingFactor = 64;
+        settings.verbosity = 3;
+        settings.shrinkingFactor = 16;
         settings.maxStallCount = 1e4;
         mcgs::color(colors.data(), adaptor, settings);
     }
