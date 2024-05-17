@@ -17,7 +17,7 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
                            TValue* pRHS,
                            const Partition<TIndex>* pPartition)
 {
-    // Allocate array for the new partition extents
+    // Allocate arrays for the new partition
     std::vector<TIndex> newPartitionExtents(pPartition->size() + 1);
 
     // Allocate temporary matrix
@@ -40,38 +40,38 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
                 newRowExtents[iNewRow + 1] = newRowExtents[iNewRow] + rowSize;
                 ++iNewRow;
             } // for iLocal in range(parititionSize)
+
+            newPartitionExtents[iPartition + 1] = newPartitionExtents[iPartition] + partitionSize;
         } // for iPartition in range(partitionCount)
     }
 
-    TIndex iNewRowBegin = 0;
     std::vector<TIndex> columnMap(columnCount);
 
-    for (std::size_t iPartition=0; iPartition<partitionCount; ++iPartition) {
-        auto itPartitionBegin = pPartition->begin(iPartition);
-        const auto partitionSize = pPartition->size(iPartition);
-        newPartitionExtents[iPartition] = iNewRowBegin;
+    #pragma omp parallel
+    {
+        for (std::size_t iPartition=0; iPartition<partitionCount; ++iPartition) {
+            auto itPartitionBegin = pPartition->begin(iPartition);
+            const auto partitionSize = pPartition->size(iPartition);
 
-        #pragma omp parallel for
-        for (std::remove_const_t<decltype(partitionSize)> iLocal=0; iLocal<partitionSize; ++iLocal) {
-            const TIndex iOldRow = itPartitionBegin[iLocal];
-            const TIndex iNewRow = iNewRowBegin + iLocal;
-            columnMap[iOldRow] = iNewRow;
+            #pragma omp for nowait
+            for (std::remove_const_t<decltype(partitionSize)> iLocal=0; iLocal<partitionSize; ++iLocal) {
+                const TIndex iOldRow = itPartitionBegin[iLocal];
+                const TIndex iNewRow = newPartitionExtents[iPartition] + iLocal;
+                columnMap[iOldRow] = iNewRow;
 
-            std::copy(pColumnIndices + pRowExtents[iOldRow],
-                      pColumnIndices + pRowExtents[iOldRow + 1],
-                      newColumnIndices.data() + newRowExtents[iNewRow]);
+                std::copy(pColumnIndices + pRowExtents[iOldRow],
+                        pColumnIndices + pRowExtents[iOldRow + 1],
+                        newColumnIndices.data() + newRowExtents[iNewRow]);
 
-            std::copy(pNonzeros + pRowExtents[iOldRow],
-                      pNonzeros + pRowExtents[iOldRow + 1],
-                      newNonzeros.data() + newRowExtents[iNewRow]);
+                std::copy(pNonzeros + pRowExtents[iOldRow],
+                        pNonzeros + pRowExtents[iOldRow + 1],
+                        newNonzeros.data() + newRowExtents[iNewRow]);
 
-            std::swap(pRHS[iOldRow], pRHS[iNewRow]);
-        } // for iLocal in range(parititionSize)
+                std::swap(pRHS[iOldRow], pRHS[iNewRow]);
+            } // for iLocal in range(parititionSize)
+        } // for iPartition in range(partitionCount)
+    } // omp parallel
 
-        iNewRowBegin += partitionSize;
-    } // for iPartition in range(partitionCount)
-
-    newPartitionExtents.back() = iNewRowBegin;
     std::copy(newRowExtents.begin(), newRowExtents.end(), pRowExtents);
     std::copy(newNonzeros.begin(), newNonzeros.end(), pNonzeros);
     std::transform(newColumnIndices.begin(),
