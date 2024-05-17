@@ -214,6 +214,12 @@ int main(int argc, const char* const * argv)
 
     std::fill(solution.begin(), solution.end(), 0.0);
     {
+        MCGS_SCOPED_TIMER("reordered serial relaxation");
+        mcgs::solve(solution.data(), adaptor, pVector->data(), settings);
+    }
+
+    std::fill(solution.begin(), solution.end(), 0.0);
+    {
         MCGS_SCOPED_TIMER("reordered parallel relaxation");
         mcgs::solve(solution.data(), adaptor, pVector->data(), pReorderedPartition, settings);
     }
