@@ -3,7 +3,10 @@
 scriptDir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "$scriptDir"
 
-if [ -d build ]; then rm -rf build; fi
+if [ -d build ]; then
+    if [ -f build/CMakeCache.txt ]; then rm build/CMakeCache.txt; fi
+#    if [ -d build/CMakeFiles ]; then rm -rf build/CMakeFiles; fi
+fi
 
 if ! cmake                                      \
     -H.                                         \
