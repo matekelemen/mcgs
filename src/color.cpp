@@ -5,9 +5,9 @@
 #include "mcgs/mcgs.hpp" // mcgs::color
 
 // --- STL Includes ---
+#include <stdexcept>
 #include <vector> // std::vector
 #include <unordered_set> // std::unordered_set, std::pair
-#include <unordered_map> // std::unordered_map
 #include <cstddef> // std::size_t
 #include <algorithm> // std::min, std::max
 #include <numeric> // std::iota
@@ -54,21 +54,17 @@ struct IndexPairTraits
 
 // @todo change to a more efficient set
 template <class TIndex>
-using NeighborSet = std::unordered_set<TIndex>;
+using NeighborSet = std::vector<TIndex>;
 
 
 /// @brief Collect all edges of an undirected graph.
 template <class TIndex, class TValue>
-std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue>& rMatrix)
+std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue>& rMatrix,
+                                                  std::vector<MCGS_MUTEX>& rMutexes)
 {
     std::vector<NeighborSet<TIndex>> neighbors(rMatrix.columnCount);
-    std::vector<MCGS_MUTEX> mutexes;
-    mutexes.reserve(neighbors.size());
-    for (std::size_t iLock=0ul; iLock<neighbors.size(); ++iLock) {
-        MCGS_INITIALIZE_MUTEX(mutexes.emplace_back());
-    }
 
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
         const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
@@ -77,29 +73,43 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
             const TValue value = rMatrix.pNonzeros[iEntry];
             if (value && iRow != iColumn) {
-                MCGS_ACQUIRE_MUTEX(mutexes[std::min(iRow, iColumn)]);
-                MCGS_ACQUIRE_MUTEX(mutexes[std::max(iRow, iColumn)]);
-                neighbors[iRow].insert(iColumn);
-                neighbors[iColumn].insert(iRow);
-                MCGS_RELEASE_MUTEX(mutexes[std::max(iRow, iColumn)]);
-                MCGS_RELEASE_MUTEX(mutexes[std::min(iRow, iColumn)]);
+                {
+                    MCGS_ACQUIRE_MUTEX(rMutexes[iRow]);
+                    const auto itInsert = std::lower_bound(neighbors[iRow].begin(),
+                                                           neighbors[iRow].end(),
+                                                           iColumn);
+                    const bool insert = itInsert == neighbors[iRow].end() &&
+                                                    (neighbors[iRow].empty() || neighbors[iRow].back() != iColumn);
+                    if (insert) neighbors[iRow].insert(itInsert, iColumn);
+                    MCGS_RELEASE_MUTEX(rMutexes[iRow]);
+                }
+
+                {
+                    MCGS_ACQUIRE_MUTEX(rMutexes[iColumn]);
+                    const auto itInsert = std::lower_bound(neighbors[iColumn].begin(),
+                                                           neighbors[iColumn].end(),
+                                                           iRow);
+                    const bool insert = itInsert == neighbors[iColumn].end() &&
+                                                    (neighbors[iColumn].empty() || neighbors[iColumn].back() != iRow);
+                    if (insert) neighbors[iColumn].insert(itInsert, iRow);
+                    MCGS_RELEASE_MUTEX(rMutexes[iColumn]);
+                }
             }
         } // for iEntry in range(iRowBegin, iRowEnd)
     } // for iRow in range(rowCount)
 
-    for (auto& rLock : mutexes) {
-        MCGS_DEINITIALIZE_MUTEX(rLock);
-    }
-
     return neighbors;
 }
+
+
+using Mask = std::vector<char>;
 
 
 template <class TIndex, class TColor>
 bool isColored(const TIndex iVertex,
                const NeighborSet<TIndex>* pNeighborMap,
                const TColor* pColors,
-               const std::vector<TIndex>& rUncolored)
+               const Mask& rColoredMask)
 {
     const TColor currentColor = pColors[iVertex];
 
@@ -121,24 +131,19 @@ bool isColored(const TIndex iVertex,
                 conflict = true;
                 colored = false;
                 break;
+            } else if (rColoredMask[iNeighbor]) {
+                // Although the current vertex would win a tiebreaker against
+                // its neighbor it's in conflict with, the neighbor's color is
+                // already set and cannot be changed => give up on this vertex.
+                conflict = true;
+                colored = false;
+                break;
             } else {
-                const auto [itEqualBegin, itEqualEnd] = std::equal_range(rUncolored.begin(),
-                                                                         rUncolored.end(),
-                                                                         iNeighbor);
-                if (itEqualBegin == itEqualEnd) {
-                    // Although the current vertex would win a tiebreaker against
-                    // its neighbor it's in conflict with, the neighbor's color is
-                    // already set and cannot be changed => give up on this vertex.
-                    conflict = true;
-                    colored = false;
-                    break;
-                } else {
-                    // This is the first conflict and the current vertex
-                    // has a higher index than its conflicting neighbor,
-                    // who is still waiting to be colored, winning the tiebreaker
-                    // => hang on to this vertex.
-                    conflict = true;
-                }
+                // This is the first conflict and the current vertex
+                // has a higher index than its conflicting neighbor,
+                // who is still waiting to be colored, winning the tiebreaker
+                // => hang on to this vertex.
+                conflict = true;
             }
         }
     } // for iNeighbor in neighbors[iVertex]
@@ -168,10 +173,12 @@ template <class TColor>
 void removeFromPalette(const TColor color,
                        Palette<TColor>& rPalette)
 {
-    rPalette.palette.erase(std::remove(rPalette.palette.begin(),
-                                       rPalette.palette.end(),
-                                       color),
-                           rPalette.palette.end());
+    // The palette's colors are assumed to be sorted
+    if (!std::is_sorted(rPalette.palette.begin(), rPalette.palette.end())) throw std::runtime_error("");
+    const auto [itBegin, itEnd] = std::equal_range(rPalette.palette.begin(),
+                                                   rPalette.palette.end(),
+                                                   color);
+    rPalette.palette.erase(itBegin, itEnd);
 }
 
 
@@ -222,9 +229,12 @@ int color(TColor* pColors,
         return MCGS_FAILURE;
     }
 
+    std::vector<MCGS_MUTEX> mutexes(rMatrix.rowCount);
+    for (MCGS_MUTEX& rMutex : mutexes) MCGS_INITIALIZE_MUTEX(rMutex);
+
     // Collect all edges of the graph
     // (symmetric version of the input matrix)
-    const std::vector<NeighborSet<TIndex>> neighbors = collectNeighbors(rMatrix);
+    const auto neighbors = collectNeighbors(rMatrix, mutexes);
 
     // Find the minimum and maximum vertex degrees.
     TIndex minDegree = std::numeric_limits<TIndex>::max();
@@ -245,7 +255,6 @@ int color(TColor* pColors,
 
     // Allocate the palette of every vertex to the max possible (maximum vertex degree).
     // An extra entry at the end of each palette indicates the palette's actual size.
-    std::vector<Palette<TColor>> palettes(rMatrix.columnCount);
     const TIndex shrinkingFactor = 0 < settings.shrinkingFactor ?
                                    static_cast<TIndex>(settings.shrinkingFactor) :
                                    std::max(TIndex(1), minDegree);
@@ -259,6 +268,8 @@ int color(TColor* pColors,
     }
 
     // Initialize the palette of all vertices to a shrunk set
+    std::vector<Palette<TColor>> palettes(rMatrix.columnCount);
+
     #pragma omp parallel for
     for (TIndex iVertex=0; iVertex<rMatrix.columnCount; ++iVertex) {
         palettes[iVertex].palette.resize(initialPaletteSize);
@@ -267,22 +278,23 @@ int color(TColor* pColors,
     } // for iVertex in range(columnCount)
 
     // Track vertices that need to be colored.
+    Mask coloredMask(rMatrix.columnCount, false);
     std::vector<TIndex> uncolored;
-    uncolored.reserve(rMatrix.columnCount);
-    for (TIndex iVertex=0ul; iVertex<rMatrix.columnCount; ++iVertex) {
-        uncolored.push_back(iVertex);
-    }
 
     // Keep coloring until all vertices are colored.
     std::size_t iterationCount = 0ul;
     int stallCounter = 0;
 
-    while (!uncolored.empty()) {
-        const std::size_t visitCount = uncolored.size();
+    do {
+        uncolored.clear();
+        for (TIndex iVertex=0; iVertex<static_cast<TIndex>(coloredMask.size()); ++iVertex) {
+            if (!coloredMask[iVertex]) uncolored.push_back(iVertex);
+        }
+        const TIndex uncoloredCount = uncolored.size();
 
         if (3 <= settings.verbosity) {
             std::cout << "coloring iteration " << iterationCount++
-                      << " (" << visitCount << "/" << rMatrix.columnCount
+                      << " (" << uncoloredCount << "/" << rMatrix.columnCount
                       << " left to color)\n";
         }
 
@@ -292,7 +304,7 @@ int color(TColor* pColors,
             std::mt19937 randomGenerator(omp_get_thread_num());
 
             #pragma omp for
-            for (std::size_t iVisit=0ul; iVisit<uncolored.size(); ++iVisit) {
+            for (TIndex iVisit=0ul; iVisit<uncoloredCount; ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
                 const TColor paletteSize = palettes[iVertex].palette.size();
                 const TColor colorIndex = std::uniform_int_distribution<TColor>(TColor(0), paletteSize)(randomGenerator);
@@ -301,70 +313,50 @@ int color(TColor* pColors,
         } // omp parallel
 
         // Check for conflicts and remove colored vertices.
-        std::unordered_map<TIndex,MCGS_MUTEX> mutexes;
-        for (auto iVertex : uncolored) {
-            MCGS_INITIALIZE_MUTEX(mutexes.emplace(iVertex, MCGS_MUTEX()).first->second);
-        }
-
         #pragma omp parallel
         {
-            std::vector<TIndex> verticesToErase;
-
             #pragma omp for
-            for (std::size_t iVisit=0; iVisit<uncolored.size(); ++iVisit) {
+            for (TIndex iVisit=0; iVisit<uncoloredCount; ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
-                const bool colored = isColored(iVertex, neighbors.data(), pColors, uncolored);
+                const bool colored = isColored(iVertex, neighbors.data(), pColors, coloredMask);
 
                 // If the current vertex has a valid color, remove it
                 // from the remaining set and remove its color from the
                 // palettes of its neighbors.
                 if (colored) {
-                    verticesToErase.push_back(iVertex);
-                }
+                    for (TIndex iNeighbor : neighbors[iVertex]) {
+                        if (!coloredMask[iNeighbor]) {
+                            MCGS_ACQUIRE_MUTEX(mutexes[iNeighbor]);
+                            removeFromPalette(pColors[iVertex], palettes[iNeighbor]);
+                            if (palettes[iNeighbor].palette.empty() && palettes[iNeighbor].maxColor + 1 != pColors[iVertex]) {
+                                extendPalette(palettes[iNeighbor]);
+                            }
+                            MCGS_RELEASE_MUTEX(mutexes[iNeighbor]);
+                        } // if !coloredMask[iNeighbor]
+                    } // for iNeighbor in neighbors[iVertex]
+
+                    MCGS_ACQUIRE_MUTEX(mutexes[iVertex]);
+                    coloredMask[iVertex] = true;
+                    MCGS_RELEASE_MUTEX(mutexes[iVertex]);
+                } // if colored
             } // for iVertex in uncolored
-
-            #pragma omp for nowait
-            for (std::size_t iEntry=0; iEntry<verticesToErase.size(); ++iEntry) {
-                const auto iVertex = verticesToErase[iEntry];
-                for (TIndex iNeighbor : neighbors[iVertex]) {
-                    const auto itNeighbor = mutexes.find(iNeighbor);
-
-                    if (itNeighbor != mutexes.end()) {
-                        MCGS_ACQUIRE_MUTEX(itNeighbor->second);
-                        removeFromPalette(pColors[iVertex], palettes[iNeighbor]);
-                        if (palettes[iNeighbor].palette.empty()) extendPalette(palettes[iNeighbor]);
-                        MCGS_RELEASE_MUTEX(itNeighbor->second);
-                    } // if itNeighbor
-                } // for iNeighbor in neighbors[iVertex]
-            } // for iVertex in toErase
-
-            // Remove colored vertices from the remaining set, as well
-            // as their color from the palette of their neighbors.
-            if (!verticesToErase.empty()) {
-                #pragma omp critical
-                {
-                    std::vector<TIndex> tmp;
-                    std::set_difference(uncolored.begin(), uncolored.end(),
-                                        verticesToErase.begin(), verticesToErase.end(),
-                                        std::back_inserter(tmp));
-                    uncolored.swap(tmp);
-                }
-            }
-
         } // omp parallel
 
-        for (auto& [iVertex, rLock] : mutexes) {
-            MCGS_DEINITIALIZE_MUTEX(rLock);
-        }
-
-        if (uncolored.size() == visitCount) {
+        if (uncolored.size() == static_cast<std::size_t>(std::count_if(coloredMask.begin(), coloredMask.end(), [](const auto flag) {return !flag;}))) {
             // Failed to color any vertices => extend the palette of some random vertices
-            //const TIndex maxExtensions = std::max(TIndex(1), TIndex(uncolored.size() / 1));
+            const TIndex maxExtensions = std::max(TIndex(1), TIndex(5 * uncolored.size() / 100));
             TIndex extensionCounter = 0;
 
             for (TIndex iVertex : uncolored) {
-                if (extendPalette(palettes[iVertex])) {
+                if (extendPalette(palettes[iVertex]) && ++extensionCounter < maxExtensions) {
                     break;
+                }
+            }
+
+            #pragma omp parallel for reduction(+: extensionCounter)
+            for (TIndex iVertex=0; iVertex<uncoloredCount; ++iVertex) {
+                if (extensionCounter < maxExtensions && extendPalette(palettes[iVertex])) {
+                    ++extensionCounter;
                 }
             }
 
@@ -380,7 +372,9 @@ int color(TColor* pColors,
         } /*if uncolored.size() == visitCount*/ else {
             stallCounter = 0;
         }
-    } // while uncolored
+    } while (!uncolored.empty());
+
+    for (MCGS_MUTEX& rMutex : mutexes) MCGS_DEINITIALIZE_MUTEX(rMutex);
 
     return MCGS_SUCCESS;
 }
