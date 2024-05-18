@@ -11,39 +11,6 @@ namespace mcgs {
 #define MCGS_FAILURE 1
 
 
-struct ColorSettings
-{
-    int shrinkingFactor;
-    int maxStallCount;
-    unsigned short verbosity;
-
-    ColorSettings() noexcept
-        : shrinkingFactor(-1),
-          maxStallCount(3),
-          verbosity(1)
-    {}
-};
-
-
-template <class TIndex, class TValue>
-struct SolveSettings
-{
-    TValue residualAbsoluteTolerance;
-    TValue residualRelativeTolerance;
-    TIndex maxIterations;
-    TValue relaxation;
-    unsigned short verbosity;
-
-    SolveSettings() noexcept
-        : residualAbsoluteTolerance(-1),
-          residualRelativeTolerance(-1),
-          maxIterations(1),
-          relaxation(1),
-          verbosity(1)
-    {}
-};
-
-
 template <class TIndex, class TValue>
 struct CSRAdaptor
 {
@@ -65,8 +32,18 @@ struct CSRAdaptor
 };
 
 
-template <class TIndex>
-class Partition;
+struct ColorSettings
+{
+    int shrinkingFactor;
+    int maxStallCount;
+    unsigned short verbosity;
+
+    ColorSettings() noexcept
+        : shrinkingFactor(-1),
+          maxStallCount(3),
+          verbosity(1)
+    {}
+};
 
 
 template <class TIndex, class TValue, class TColor>
@@ -74,6 +51,10 @@ MCGS_EXPORT_SYMBOL
 int color(TColor* pColors,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const ColorSettings settings);
+
+
+template <class TIndex>
+class Partition;
 
 
 template <class TIndex, class TColor>
@@ -106,6 +87,25 @@ TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
                 const TValue* pSolution,
                 const TValue* pRHS,
                 TValue* buffer) noexcept;
+
+
+template <class TIndex, class TValue>
+struct SolveSettings
+{
+    TValue residualAbsoluteTolerance;
+    TValue residualRelativeTolerance;
+    TIndex maxIterations;
+    TValue relaxation;
+    unsigned short verbosity;
+
+    SolveSettings() noexcept
+        : residualAbsoluteTolerance(-1),
+          residualRelativeTolerance(-1),
+          maxIterations(1),
+          relaxation(1),
+          verbosity(1)
+    {}
+};
 
 
 template <class TIndex, class TValue>
