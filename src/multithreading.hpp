@@ -21,10 +21,11 @@
             using value_type = T;
             using pointer = value_type*;
             using reference = value_type&;
+            using const_reference = const value_type&;
+            using iterator = value_type*;
+            using const_iterator = const value_type*;
             using size_type = std::size_t;
             using difference_type = std::ptrdiff_t;
-            using iterator = value_type*;
-            using iterator_category = std::random_access_iterator_tag;
             DummyVector() noexcept = default;
             DummyVector(std::size_t) noexcept {}
             DummyVector(std::size_t, const T&) noexcept {}
