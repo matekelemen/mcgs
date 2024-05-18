@@ -192,6 +192,7 @@ int main(int argc, const char* const * argv)
     std::fill(solution.begin(), solution.end(), 0.0);
     {
         MCGS_SCOPED_TIMER("serial relaxation");
+        settings.parallelization = mcgs::Parallelization::None;
         if (mcgs::solve(solution.data(), adaptor, pVector->data(), settings) != MCGS_SUCCESS) {
             std::cerr << "serial relaxation failed\n";
             return MCGS_FAILURE;
@@ -203,6 +204,7 @@ int main(int argc, const char* const * argv)
     std::fill(solution.begin(), solution.end(), 0.0);
     {
         MCGS_SCOPED_TIMER("parallel relaxation");
+        settings.parallelization = mcgs::Parallelization::RowWise;
         if (mcgs::solve(solution.data(), adaptor, pVector->data(), pPartition, settings) != MCGS_SUCCESS) {
             std::cerr << "parallel relaxation failed\n";
             return MCGS_FAILURE;
@@ -226,7 +228,19 @@ int main(int argc, const char* const * argv)
 
     std::fill(solution.begin(), solution.end(), 0.0);
     {
-        MCGS_SCOPED_TIMER("reordered parallel relaxation");
+        MCGS_SCOPED_TIMER("row-wise parallel reordered relaxation");
+        settings.parallelization = mcgs::Parallelization::RowWise;
+        if (mcgs::solve(solution.data(), adaptor, pVector->data(), pReorderedPartition, settings) != MCGS_SUCCESS) {
+            std::cerr << "reordered parallel relaxation failed\n";
+            return MCGS_FAILURE;
+        }
+    }
+    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), pVector->data(), buffer.data()) / initialResidual << "\n";
+
+    std::fill(solution.begin(), solution.end(), 0.0);
+    {
+        MCGS_SCOPED_TIMER("nonzero-wise parallel reordered relaxation");
+        settings.parallelization = mcgs::Parallelization::NonzeroWise;
         if (mcgs::solve(solution.data(), adaptor, pVector->data(), pReorderedPartition, settings) != MCGS_SUCCESS) {
             std::cerr << "reordered parallel relaxation failed\n";
             return MCGS_FAILURE;

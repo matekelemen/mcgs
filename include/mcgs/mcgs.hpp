@@ -89,6 +89,14 @@ TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
                 TValue* buffer) noexcept;
 
 
+enum struct Parallelization
+{
+    None        = 1,
+    RowWise     = 2,
+    NonzeroWise = 4
+};
+
+
 template <class TIndex, class TValue>
 struct SolveSettings
 {
@@ -96,6 +104,7 @@ struct SolveSettings
     TValue residualRelativeTolerance;
     TIndex maxIterations;
     TValue relaxation;
+    Parallelization parallelization;
     unsigned short verbosity;
 
     SolveSettings() noexcept
@@ -103,6 +112,7 @@ struct SolveSettings
           residualRelativeTolerance(-1),
           maxIterations(1),
           relaxation(1),
+          parallelization(Parallelization::RowWise),
           verbosity(1)
     {}
 };

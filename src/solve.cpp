@@ -1,5 +1,4 @@
 // --- External Includes ---
-#include <stdexcept>
 #ifdef MCGS_OPENMP
 #include <omp.h> // omp_get_num_threads
 #endif
@@ -58,83 +57,124 @@ int contiguousGaussSeidelSweep(TValue* pSolution,
                                const int threadCount)
 {
     if (iRowEnd < iRowBegin) {
-        if (1 <= settings.verbosity)
+        if (1 <= settings.verbosity) {
+            std::cerr << "Error: invalid range [" << iRowBegin << ", " << iRowEnd << "[\n";
+        }
         return MCGS_FAILURE;
     }
 
+    #define MCGS_ROW_WISE_SWEEP                                                                 \
+        for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {                                     \
+            TValue value = pRHS[iRow];                                                          \
+            TValue diagonal = 1;                                                                \
+                                                                                                \
+            const TIndex iEntryBegin = rMatrix.pRowExtents[iRow];                               \
+            const TIndex iEntryEnd = rMatrix.pRowExtents[iRow + 1];                             \
+                                                                                                \
+            for (TIndex iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {                       \
+                const TIndex iColumn = rMatrix.pColumnIndices[iEntry];                          \
+                const TValue nonzero = rMatrix.pNonzeros[iEntry];                               \
+                                                                                                \
+                if (iColumn == iRow) diagonal = nonzero;                                        \
+                else value -= nonzero * pSolution[iColumn];                                     \
+            } /*for iEntry in range(iEntryBegin, iEntryEnd)*/                                   \
+                                                                                                \
+            pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);      \
+        }
+
     if (1 < threadCount) {
-    //if (0 < threadCount) {
-        const TIndex partitionRowCount = iRowEnd - iRowBegin;
-        const auto itEntryBegin = rMatrix.pRowExtents + iRowBegin;
-        const auto itEntryEnd = rMatrix.pRowExtents + iRowEnd;
-        const TIndex iEntryBegin = *itEntryBegin;
-        const TIndex iEntryEnd = *itEntryEnd;
-
-        std::vector<TValue> diagonals(partitionRowCount);
-        std::vector<TValue> updates(partitionRowCount);
-        std::copy(pRHS + iRowBegin, pRHS + iRowEnd, updates.data());
-
-        #ifdef MCGS_OPENMP
-        #pragma omp parallel
-        #endif
-        {
-            std::vector<TValue> localUpdates(partitionRowCount, static_cast<TValue>(0));
-
+        if (settings.parallelization == Parallelization::RowWise) {
             #ifdef MCGS_OPENMP
-            #pragma omp for
+            #pragma omp parallel for
             #endif
-            for (TIndex iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                const auto itLocalEntryBegin = std::max(std::upper_bound(itEntryBegin, itEntryEnd, iEntry) - 1,
-                                                        itEntryBegin);
-                const TIndex iRow = std::distance(rMatrix.pRowExtents, itLocalEntryBegin);
-                const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-                const TValue nonzero = rMatrix.pNonzeros[iEntry];
+            MCGS_ROW_WISE_SWEEP
+        } /*if settings.parallelization == RowWise*/ else if (settings.parallelization == Parallelization::NonzeroWise) {
+            const TIndex partitionRowCount = iRowEnd - iRowBegin;
+            const auto itEntryBegin = rMatrix.pRowExtents + iRowBegin;
+            const auto itEntryEnd = rMatrix.pRowExtents + iRowEnd;
+            const TIndex iEntryBegin = *itEntryBegin;
+            const TIndex iEntryEnd = *itEntryEnd;
+            const TIndex entryCount = iEntryEnd - iEntryBegin;
 
-                const TIndex iLocalRow = iRow - iRowBegin;
-                if (iRow == iColumn) {
-                    diagonals[iLocalRow] = nonzero;
-                } else {
-                    localUpdates[iLocalRow] -= nonzero * pSolution[iColumn];
+            std::vector<TValue> diagonals(partitionRowCount);
+            std::vector<TValue> updates(partitionRowCount);
+            std::copy(pRHS + iRowBegin, pRHS + iRowEnd, updates.data());
+
+            std::vector<TIndex> threadEntryExtents(threadCount + 1);
+            threadEntryExtents.front() = iEntryBegin;
+            {
+                const TIndex chunkSize = entryCount / threadCount + (entryCount % threadCount ? 1 : 0);
+                for (TIndex iEnd=1; iEnd<static_cast<TIndex>(threadCount) + 1; ++iEnd) {
+                    threadEntryExtents[iEnd] = std::min(
+                        iEntryEnd,
+                        threadEntryExtents[iEnd - 1] + chunkSize
+                    );
                 }
-            } // for iEntry in range(iEntryBegin, iEntryEnd)
+            }
 
             #ifdef MCGS_OPENMP
-            #pragma omp critical
+            #pragma omp parallel
             #endif
             {
-                for (TIndex iLocal=0; iLocal<static_cast<TIndex>(updates.size()); ++iLocal) {
-                    updates[iLocal] += localUpdates[iLocal];
-                }
-            } // omp critical
-        } // omp parallel
+                std::vector<TValue> localUpdates(partitionRowCount, static_cast<TValue>(0));
 
-        #ifdef MCGS_OPENMP
-        #pragma omp parallel for
-        #endif
-        for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
-            const TIndex iLocalRow = iRow - iRowBegin;
-            pSolution[iRow] += settings.relaxation * (updates[iLocalRow] / diagonals[iLocalRow] - pSolution[iRow]);
-        }
+                #ifdef MCGS_OPENMP
+                const TIndex iThread = omp_get_thread_num();
+                #else
+                const TIndex iThread = 0;
+                #endif
+
+                const TIndex iLocalEntryBegin = threadEntryExtents[iThread];
+                const TIndex iLocalEntryEnd = threadEntryExtents[iThread + 1];
+
+                const auto itLocalEntryBegin = std::max(std::upper_bound(itEntryBegin, itEntryEnd, iLocalEntryBegin) - 1,
+                                                        itEntryBegin);
+                TIndex iRow = std::distance(rMatrix.pRowExtents, itLocalEntryBegin);
+                TIndex iLocalRow = iRow - iRowBegin;
+                const TIndex* itRowEnd = rMatrix.pRowExtents + iRow + 1;
+
+                for (TIndex iEntry=iLocalEntryBegin; iEntry<iLocalEntryEnd; ++iEntry) {
+                    while (*itRowEnd <= iEntry) {
+                        ++iRow;
+                        ++iLocalRow;
+                        ++itRowEnd;
+                    }
+
+                    const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
+                    const TValue nonzero = rMatrix.pNonzeros[iEntry];
+
+                    if (iRow == iColumn) {
+                        diagonals[iLocalRow] = nonzero;
+                    } else {
+                        localUpdates[iLocalRow] -= nonzero * pSolution[iColumn];
+                    }
+                } // for iEntry in range(iLocalEntryBegin, iLocalEntryEnd)
+
+                #ifdef MCGS_OPENMP
+                #pragma omp critical
+                #endif
+                {
+                    for (TIndex iLocal=0; iLocal<static_cast<TIndex>(updates.size()); ++iLocal) {
+                        updates[iLocal] += localUpdates[iLocal];
+                    }
+                } // omp critical
+            } // omp parallel
+
+            #ifdef MCGS_OPENMP
+            #pragma omp parallel for
+            #endif
+            for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
+                const TIndex iLocalRow = iRow - iRowBegin;
+                pSolution[iRow] += settings.relaxation * (updates[iLocalRow] / diagonals[iLocalRow] - pSolution[iRow]);
+            }
+        } /*if settings.parallelization == Parallelization::NonzeroWise*/ else if (settings.parallelization == Parallelization::None) {
+            MCGS_ROW_WISE_SWEEP
+        } // /*if settings.parallelization == Parallelization::None*/
     } /*if 1 < threadCount*/ else {
-        for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
-            TValue value = pRHS[iRow];
-            TValue diagonal = 1;
-
-            const TIndex iEntryBegin = rMatrix.pRowExtents[iRow];
-            const TIndex iEntryEnd = rMatrix.pRowExtents[iRow + 1];
-
-            for (TIndex iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
-                const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-                const TValue nonzero = rMatrix.pNonzeros[iEntry];
-
-                if (iColumn == iRow) diagonal = nonzero;
-                else value -= nonzero * pSolution[iColumn];
-            } // for iEntry in range(iEntryBegin, iEntryEnd)
-
-            pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);
-        }
+        MCGS_ROW_WISE_SWEEP
     }
 
+    #undef MCGS_ROW_WISE_SWEEP
     return MCGS_SUCCESS;
 }
 
@@ -148,11 +188,25 @@ int randomAccessGaussSeidelSweep(TValue* pSolution,
                                  const TIndex* itPartitionEnd,
                                  const int threadCount)
 {
-    if (1 < threadCount) {
+    if (itPartitionEnd < itPartitionBegin) {
+        if (1 <= settings.verbosity) {
+            std::cerr << "Error: invalid partition range\n";
+        }
+        return MCGS_FAILURE;
+    }
+
+    if (settings.parallelization == Parallelization::NonzeroWise) {
+        if (1 <= settings.verbosity) {
+            std::cerr << "Error: cannot perform nonzero-wise parallelization on random access partitions\n";
+        }
+        return MCGS_FAILURE;
+    }
+
+    if (1 < threadCount && settings.parallelization != Parallelization::None) {
         const auto partitionSize = static_cast<typename Partition<TIndex>::size_type>(std::distance(itPartitionBegin, itPartitionEnd));
 
         #ifdef MCGS_OPENMP
-        #pragma omp parallel for num_threads(threadCount)
+        #pragma omp parallel for
         #endif
         for (typename Partition<TIndex>::size_type iLocal=0; iLocal<partitionSize; ++iLocal) {
             const TIndex iRow = itPartitionBegin[iLocal];
@@ -170,7 +224,7 @@ int randomAccessGaussSeidelSweep(TValue* pSolution,
 
             pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);
         } // for iLocal in range()
-    } /*if 1 < threadCount*/ else {
+    } /*if 1 < threadCount && settings.parallelization != Parallelization::None*/ else {
         for (auto itRow=itPartitionBegin; itRow!=itPartitionEnd; ++itRow) {
             const TIndex iRow = *itRow;
             TValue value = pRHS[iRow];
@@ -198,7 +252,14 @@ int solve(TValue* pSolution,
           const TValue* pRHS,
           const SolveSettings<TIndex,TValue> settings)
 {
-    std::vector<TValue> buffer(rMatrix.columnCount);
+    if (settings.parallelization != Parallelization::None) {
+        if (1 <= settings.verbosity) {
+            std::cerr << "Error: parallel Gauss-Seidel requires a partition\n";
+        }
+        return MCGS_FAILURE;
+    }
+
+    std::vector<TValue> buffer(3 <= rMatrix.columnCount ? rMatrix.columnCount : 0);
     const TValue initialResidual = 3 <= settings.verbosity ?
                                    residual(rMatrix, pSolution, pRHS, buffer.data()) :
                                    static_cast<TValue>(1);
@@ -252,10 +313,11 @@ int solve(TValue* pSolution,
         } // for itPartition in pPartition[iPartition]
 
         // @todo Find a dynamic way of approximating the optimal load of a single thread.
-        threadCounts[iPartition] = std::clamp(nonzeroCount / 1024,
-                                              static_cast<std::size_t>(1),
-                                              std::min(pPartition->size(iPartition),
-                                                       static_cast<std::size_t>(maxThreadCount)));
+        //threadCounts[iPartition] = std::clamp(nonzeroCount / 1024,
+        //                                      static_cast<std::size_t>(1),
+        //                                      std::min(pPartition->size(iPartition),
+        //                                               static_cast<std::size_t>(maxThreadCount)));
+        threadCounts[iPartition] = maxThreadCount;
     }
 
     std::vector<TValue> buffer(rMatrix.columnCount);
