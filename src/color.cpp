@@ -298,8 +298,9 @@ int color(TColor* pColors,
             for (TIndex iVisit=0ul; iVisit<uncoloredCount; ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
                 const TColor paletteSize = palettes[iVertex].palette.size();
-                const TColor colorIndex = std::uniform_int_distribution<TColor>(TColor(0), paletteSize)(randomGenerator);
-                pColors[iVertex] = palettes[iVertex].palette[colorIndex];
+                const TColor iColorMax = paletteSize ? paletteSize - 1 : static_cast<TColor>(0);
+                const TColor iColor = std::uniform_int_distribution<TColor>(TColor(0), iColorMax)(randomGenerator);
+                pColors[iVertex] = palettes[iVertex].palette[iColor];
             }
 
             #ifdef MCGS_OPENMP
