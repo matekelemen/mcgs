@@ -13,6 +13,8 @@ template <class TIndex>
 class Partition
 {
 private:
+    bool _isContiguous;
+
     std::vector<TIndex> _partitionExtents;
 
     std::vector<TIndex> _rowIndices;
@@ -49,6 +51,9 @@ public:
 
     const_iterator end(const size_type iPartition) const noexcept
     {return &_rowIndices[_partitionExtents[iPartition + 1]];}
+
+    bool isContiguous() const noexcept
+    {return _isContiguous;}
 };
 
 

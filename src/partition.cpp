@@ -6,7 +6,7 @@
 #include <cstddef> // std::size_t
 #include <vector> // std::vector
 #include <unordered_map> // std::unordered_map
-#include <algorithm> // std::copy
+#include <algorithm> // std::copy, std::is_sorted
 
 
 namespace mcgs {
@@ -15,39 +15,52 @@ namespace mcgs {
 template <class TIndex>
 template <class TColor>
 Partition<TIndex>::Partition(const TColor* pColors, const TIndex columnCount)
-    : _partitionExtents(1, 0),
+    : _isContiguous(false),
+      _partitionExtents(),
       _rowIndices()
 {
     std::unordered_map<
         TColor,
         std::vector<TIndex>
-    > partitions;
+    > partitionMap;
 
     for (TIndex iColumn=0; iColumn<columnCount; ++iColumn) {
         const TColor color = pColors[iColumn];
-        partitions.emplace(color, std::vector<TIndex> {})   // <== make sure an entry is mapped to color
+        partitionMap.emplace(color, std::vector<TIndex> {}) // <== make sure an entry is mapped to color
             .first                                          // <== iterator pointing to the entry
             ->second                                        // <== reference to the mapped vector
             .push_back(iColumn);                            // <== insert the column index into the mapped vector
     } // for iColumn in range(columnCount)
 
-    _rowIndices.reserve(columnCount);
-    for ([[maybe_unused]] const auto& [iColor, rColumns] : partitions) {
-        const std::size_t iPartitionBegin = _rowIndices.size();
-        _rowIndices.resize(iPartitionBegin + rColumns.size());
+    _rowIndices.resize(columnCount + 1);
+    _partitionExtents.resize(partitionMap.size() + 1);
 
-        _partitionExtents.push_back(_rowIndices.size());
-        std::copy(rColumns.begin(), rColumns.end(), _rowIndices.begin() + iPartitionBegin);
+    TIndex iColor = 0;
+    TIndex rowCounter = 0;
+
+    for ([[maybe_unused]] const auto& [color, rColumns] : partitionMap) {
+        _partitionExtents[iColor] = rowCounter;
+        std::copy(rColumns.begin(), rColumns.end(), _rowIndices.begin() + rowCounter);
+
+        ++iColor;
+        rowCounter += rColumns.size();
     }
+
+    _partitionExtents.back() = rowCounter;
+    _rowIndices.back() = columnCount;
+    _isContiguous = std::is_sorted(_rowIndices.begin(), _rowIndices.end());
 }
 
 
 template <class TIndex>
 Partition<TIndex>::Partition(std::vector<TIndex>&& rPartitionExtents,
                              std::vector<TIndex>&& rRowIndices) noexcept
-    : _partitionExtents(std::move(rPartitionExtents)),
+    : _isContiguous(false),
+      _partitionExtents(std::move(rPartitionExtents)),
       _rowIndices(std::move(rRowIndices))
-{}
+{
+    _isContiguous = std::is_sorted(_rowIndices.begin(), _rowIndices.end());
+}
 
 
 template <class TIndex, class TColor>

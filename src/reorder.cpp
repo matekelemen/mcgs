@@ -19,6 +19,7 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
 {
     // Allocate arrays for the new partition
     std::vector<TIndex> newPartitionExtents(pPartition->size() + 1);
+    newPartitionExtents[0] = static_cast<TIndex>(0);
 
     // Allocate temporary matrix
     const auto partitionCount = pPartition->size();
@@ -87,7 +88,7 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
 
     // Allocate arrays for the new partition
     // and assign the new row indices
-    std::vector<TIndex> newRowIndices(rowCount);
+    std::vector<TIndex> newRowIndices(rowCount + 1);
     std::iota(newRowIndices.begin(), newRowIndices.end(), TIndex(0));
 
     return new Partition<TIndex>(std::move(newPartitionExtents), std::move(newRowIndices));
