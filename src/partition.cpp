@@ -1,5 +1,5 @@
 // --- Internal Includes ---
-#include "mcgs/mcgs.hpp" // mcgs::partition, mcgs::CSRAdaptor
+#include "mcgs/mcgs.hpp" // mcgs::partition
 #include "partition.hpp" // mcgs::Partition
 
 // --- STL Includes ---
