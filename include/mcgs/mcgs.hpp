@@ -32,15 +32,18 @@ struct CSRAdaptor
 };
 
 
+template <class TIndex, class TValue>
 struct ColorSettings
 {
     int shrinkingFactor;
     int maxStallCount;
+    TValue tolerance;
     unsigned short verbosity;
 
     ColorSettings() noexcept
         : shrinkingFactor(-1),
           maxStallCount(3),
+          tolerance(0),
           verbosity(1)
     {}
 };
@@ -50,7 +53,7 @@ template <class TIndex, class TValue, class TColor>
 MCGS_EXPORT_SYMBOL
 int color(TColor* pColors,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
-          const ColorSettings settings);
+          const ColorSettings<TIndex,TValue> settings);
 
 
 template <class TIndex>

@@ -41,7 +41,6 @@ struct IndexPairTraits
 } // namespace detail
 
 
-// @todo change to a more efficient set
 template <class TIndex>
 using NeighborSet = std::vector<TIndex>;
 
@@ -49,6 +48,7 @@ using NeighborSet = std::vector<TIndex>;
 /// @brief Collect all edges of an undirected graph.
 template <class TIndex, class TValue>
 std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue>& rMatrix,
+                                                  const ColorSettings<TIndex,TValue> settings,
                                                   [[maybe_unused]] MCGS_MUTEX_ARRAY& rMutexes)
 {
     std::vector<NeighborSet<TIndex>> neighbors(rMatrix.columnCount);
@@ -63,7 +63,7 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
         for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
             const TValue value = rMatrix.pNonzeros[iEntry];
-            if (value && iRow != iColumn) {
+            if (settings.tolerance < std::abs(value) && iRow != iColumn) {
                 {
                     MCGS_ACQUIRE_MUTEX(rMutexes[iRow]);
                     const auto [itBegin, itEnd] = std::equal_range(neighbors[iRow].begin(),
@@ -162,7 +162,7 @@ void removeFromPalette(const TColor color,
 template <class TIndex, class TValue, class TColor>
 int color(TColor* pColors,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
-          const ColorSettings settings)
+          const ColorSettings<TIndex,TValue> settings)
 {
     // Cheap sanity checks
     if (rMatrix.rowCount < 0) {
@@ -211,7 +211,7 @@ int color(TColor* pColors,
 
     // Collect all edges of the graph
     // (symmetric version of the input matrix)
-    const auto neighbors = collectNeighbors(rMatrix, mutexes);
+    const auto neighbors = collectNeighbors(rMatrix, settings, mutexes);
 
     // Find the minimum and maximum vertex degrees.
     TIndex minDegree = std::numeric_limits<TIndex>::max();
@@ -367,7 +367,7 @@ int color(TColor* pColors,
 #define MCGS_INSTANTIATE_COLOR(TIndex, TValue, TColor)              \
     template int color(TColor* pColors,                             \
                        const CSRAdaptor<TIndex,TValue>& rMatrix,    \
-                       const ColorSettings settings);
+                       const ColorSettings<TIndex,TValue> settings);
 
 MCGS_INSTANTIATE_COLOR(int, double, unsigned);
 MCGS_INSTANTIATE_COLOR(long, double, unsigned);
