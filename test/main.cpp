@@ -120,7 +120,7 @@ int main(int argc, const char* const * argv)
 
     {
         MCGS_SCOPED_TIMER("coloring");
-        mcgs::ColorSettings settings;
+        mcgs::ColorSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
         settings.verbosity = 3;
         settings.shrinkingFactor = 64;
         settings.maxStallCount = 1e4;
