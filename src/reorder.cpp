@@ -57,7 +57,7 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
             const auto partitionSize = pPartition->size(iPartition);
 
             #ifdef MCGS_OPENMP
-            #pragma omp for nowait
+            #pragma omp for
             #endif
             for (std::remove_const_t<decltype(partitionSize)> iLocal=0; iLocal<partitionSize; ++iLocal) {
                 const TIndex iOldRow = itPartitionBegin[iLocal];
