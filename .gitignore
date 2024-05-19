@@ -24,6 +24,7 @@
 !test/main.cpp
 !test/parseMatrixMarket.hpp
 !test/parseMatrixMarket.cpp
+!test/input.tar.gz
 
 !.vscode
 !settings.json
