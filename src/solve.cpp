@@ -303,6 +303,7 @@ int randomAccessSweep(TValue* pSolution,
                 ++iEntry;
                 break;
             } else {
+                ++iEntry;
                 break;
             }
         } /*for iEntry in range(iEntryBegin, iEntryEnd)*/
