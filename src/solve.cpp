@@ -378,6 +378,13 @@ int solve(TValue* pSolution,
     const int maxThreadCount = 1;
     #endif
 
+    if (maxThreadCount < 1) {
+        if (1 <= settings.verbosity) {
+            std::cerr << "Error: the maximum number of allowed threads must be at least 1\n";
+        }
+        return MCGS_FAILURE;
+    }
+
     if (settings.parallelization == Parallelization::None || maxThreadCount == 1) {
         return solve(pSolution,
                      rMatrix,
