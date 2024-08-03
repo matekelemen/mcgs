@@ -385,13 +385,13 @@ int solve(TValue* pSolution,
         #pragma omp parallel for
         #endif
         for (int iPartition=0; iPartition<static_cast<int>(pPartition->size()); ++iPartition) {
-            std::size_t nonzeroCount = 0ul;
-            for (auto itPartition=pPartition->begin(iPartition); itPartition!=pPartition->end(iPartition); ++itPartition) {
-                const TIndex iRow = *itPartition;
-                nonzeroCount += rMatrix.pRowExtents[iRow + 1] - rMatrix.pRowExtents[iRow];
-            } // for itPartition in pPartition[iPartition]
-
             // @todo Find a dynamic way of approximating the optimal load of a single thread.
+            //std::size_t nonzeroCount = 0ul;
+            //for (auto itPartition=pPartition->begin(iPartition); itPartition!=pPartition->end(iPartition); ++itPartition) {
+            //    const TIndex iRow = *itPartition;
+            //    nonzeroCount += rMatrix.pRowExtents[iRow + 1] - rMatrix.pRowExtents[iRow];
+            //} // for itPartition in pPartition[iPartition]
+            //
             //threadCounts[iPartition] = std::clamp(nonzeroCount / 1024,
             //                                      static_cast<std::size_t>(1),
             //                                      std::min(pPartition->size(iPartition),
