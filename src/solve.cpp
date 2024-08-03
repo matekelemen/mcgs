@@ -372,6 +372,7 @@ int solve(TValue* pSolution,
           const Partition<TIndex>* pPartition,
           const SolveSettings<TIndex,TValue> settings)
 {
+    // Query the maximum number of threads MCGS is allowed to use.
     #ifdef MCGS_OPENMP
     const int maxThreadCount = omp_get_max_threads();
     #else
@@ -385,12 +386,17 @@ int solve(TValue* pSolution,
         return MCGS_FAILURE;
     }
 
+    // Run serial smoothing if no parallelization is allowed
+    // or only a single thread is available.
     if (settings.parallelization == Parallelization::None || maxThreadCount == 1) {
         return solve(pSolution,
                      rMatrix,
                      pRHS,
                      settings);
-    } else {
+    }
+
+    // Run parallel smoothing otherwise.
+    else {
         // Collect how many threads should execute each partition.
         std::vector<int> threadCounts(pPartition->size());
 
