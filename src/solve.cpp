@@ -344,6 +344,11 @@ int solve(TValue* pSolution,
                   TIndex(0),
                   rMatrix.rowCount,
                   settings) != MCGS_SUCCESS) {
+            if (1 <= settings.verbosity) {
+                std::cerr << "Error: serial Gauss-Seidel failed at iteration "
+                          << iIteration
+                          << '\n';
+            }
             return MCGS_FAILURE;
         }
 
@@ -444,6 +449,13 @@ int solve(TValue* pSolution,
                                         *pPartition->begin(iPartition),
                                         *pPartition->end(iPartition),
                                         threadCount) != MCGS_SUCCESS) {
+                        if (1 <= settings.verbosity) {
+                            std::cerr << "Error: parallel contiguous Gauss-Seidel failed at iteration "
+                                      << iIteration
+                                      << " on partition "
+                                      << iPartition
+                                      << '\n';
+                        }
                         return MCGS_FAILURE;
                     }
                 } /*if pPartition->isContiguous()*/ else {
@@ -455,6 +467,13 @@ int solve(TValue* pSolution,
                                           pPartition->begin(iPartition),
                                           pPartition->end(iPartition),
                                           threadCount) != MCGS_SUCCESS) {
+                        if (1 <= settings.verbosity) {
+                            std::cerr << "Error: parallel random-access Gauss-Seidel failed at iteration "
+                                      << iIteration
+                                      << " on partition "
+                                      << iPartition
+                                      << '\n';
+                        }
                         return MCGS_FAILURE;
                     }
                 }
