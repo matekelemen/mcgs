@@ -418,39 +418,13 @@ int solve(TValue* pSolution,
             threadCounts[iPartition] = maxThreadCount;
         }
 
-        std::vector<TIndex> threadExtents(maxThreadCount + 1);
-        threadExtents.front() = 0;
-        {
-            const TIndex chunkSize = rMatrix.columnCount / maxThreadCount + (rMatrix.columnCount % maxThreadCount ? 1 : 0);
-            for (TIndex iEnd=1; iEnd<static_cast<TIndex>(maxThreadCount) + 1; ++iEnd) {
-                threadExtents[iEnd] = std::min(
-                    rMatrix.columnCount,
-                    threadExtents[iEnd - 1] + chunkSize
-                );
-            }
-        }
-
         std::vector<TValue> buffer(rMatrix.columnCount);
         const TValue initialResidual = 3 <= settings.verbosity ?
                                     residual(rMatrix, pSolution, pRHS, buffer.data()) :
                                     static_cast<TValue>(1);
 
         for (TIndex iIteration=0; iIteration<settings.maxIterations; ++iIteration) {
-            if (1 < maxThreadCount || settings.parallelization != Parallelization::None) {
-                #ifdef MCGS_OPENMP
-                #pragma omp parallel
-                #endif
-                {
-                    #ifdef MCGS_OPENMP
-                    const auto iThread = omp_get_thread_num();
-                    #else
-                    const int iThread = 0;
-                    #endif
-                    std::copy(pSolution + threadExtents[iThread],
-                              pSolution + threadExtents[iThread + 1],
-                              buffer.data() + threadExtents[iThread]);
-                }
-            }
+            std::copy(pSolution, pSolution + rMatrix.rowCount, buffer.data());
 
             for (typename Partition<TIndex>::size_type iPartition=0; iPartition<pPartition->size(); ++iPartition) {
                 const auto threadCount = threadCounts[iPartition];
