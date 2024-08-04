@@ -214,6 +214,11 @@ int main(int argc, const char* const * argv)
         }, tmp);
     }
 
+    if (matrix.columnCount != vector.size()) {
+        std::cerr << "matrix(" << matrix.rowCount << "x" << matrix.columnCount << ") - vector(" << vector.size() << "x1) size mismatch";
+        return MCGS_FAILURE;
+    }
+
     // Construct a sparse CSR adaptor
     mcgs::CSRAdaptor<
         mcgs::TestCSRMatrix::Index,
