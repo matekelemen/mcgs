@@ -36,7 +36,7 @@ jobs:
           fi
       - name: Run tests
         run: |
-          git install lfs
+          git lfs install
           git lfs pull
 
           cd test
