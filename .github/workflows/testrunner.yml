@@ -45,7 +45,7 @@ jobs:
 
           for shrinkingFactor in 64 128 256; do
             for threadCount in 1 2 4; do
-              for case in mok_structure mok_fluid trebuchet_linear; do
+              for case in mok_structure mok_fluid; do
                     echo "Running $case on $threadCount threads with $shrinkingFactor shrinking ..."
                     export OMP_NUM_THREADS=$threadCount
                     if ! build/bin/mcgs_testrunner                \

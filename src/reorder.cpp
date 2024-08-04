@@ -26,7 +26,7 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
     std::vector<TIndex> newRowExtents(rowCount + 1);
     std::vector<TIndex> newColumnIndices(nonzeroCount);
     std::vector<TValue> newNonzeros(nonzeroCount);
-    std::vector<TValue> rhs(rowCount);
+    std::vector<TValue> rhs(columnCount);
     newRowExtents.front() = 0;
 
     // Compute new extents
