@@ -86,7 +86,7 @@ int rowWiseSweep(TValue* pSolution,
                  [[maybe_unused]] const int threadCount)
 {
     #ifdef MCGS_OPENMP
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(threadCount)
     #endif
     for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
         TValue value = pRHS[iRow];
@@ -145,7 +145,7 @@ int nonzeroWiseSweep(TValue* pSolution,
     }
 
     #ifdef MCGS_OPENMP
-    #pragma omp parallel
+    #pragma omp parallel num_threads(threadCount)
     #endif
     {
         std::vector<TValue> localUpdates(partitionRowCount, static_cast<TValue>(0));
@@ -195,7 +195,7 @@ int nonzeroWiseSweep(TValue* pSolution,
     } // omp parallel
 
     #ifdef MCGS_OPENMP
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(threadCount)
     #endif
     for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
         const TIndex iLocalRow = iRow - iRowBegin;
@@ -281,7 +281,7 @@ int randomAccessSweep(TValue* pSolution,
     const auto partitionSize = static_cast<typename Partition<TIndex>::size_type>(std::distance(itPartitionBegin, itPartitionEnd));
 
     #ifdef MCGS_OPENMP
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(threadCount)
     #endif
     for (typename Partition<TIndex>::size_type iLocal=0; iLocal<partitionSize; ++iLocal) {
         const TIndex iRow = itPartitionBegin[iLocal];
