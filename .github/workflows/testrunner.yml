@@ -21,31 +21,31 @@ jobs:
       matrix:
         sanitizer: [none, address]
         type: [RelWithDebInfo, Release]
-      runs-on: ubuntu-latest
-      steps:
-        - name: Clone repository
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-        - name: Build
-          run: ./build.sh -t "${{ matrix.type }}" -o "-fsanitize=${{ matrix.sanitizer }}"
-        - name: Run tests
-          run: |
-            cd $build
-            tar -xvzf input.tar.gz
-            cd ..
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        run: ./build.sh -t "${{ matrix.type }}" -o "-fsanitize=${{ matrix.sanitizer }}"
+      - name: Run tests
+        run: |
+          cd $build
+          tar -xvzf input.tar.gz
+          cd ..
 
-            for shrinkingFactor in 64 128 256; do
-              for threadCount in 1 2 4; do
-                for case in mok_structure mok_fluid big; do
-                      echo "Running $case on $threadCount threads with $shrinkingFactor shrinking ..."
-                      export OMP_NUM_THREADS=$threadCount
-                      if ! build/bin/mcgs_testrunner                \
-                              test/${case}.mm test/${case}_rhs.mm   \
-                              -s $shrinkingFactor $shrinkingFactor  \
-                              -i 1e2
-                        then exit 1
-                      fi
-                done
+          for shrinkingFactor in 64 128 256; do
+            for threadCount in 1 2 4; do
+              for case in mok_structure mok_fluid big; do
+                    echo "Running $case on $threadCount threads with $shrinkingFactor shrinking ..."
+                    export OMP_NUM_THREADS=$threadCount
+                    if ! build/bin/mcgs_testrunner                \
+                            test/${case}.mm test/${case}_rhs.mm   \
+                            -s $shrinkingFactor $shrinkingFactor  \
+                            -i 1e2
+                      then exit 1
+                    fi
               done
             done
+          done
