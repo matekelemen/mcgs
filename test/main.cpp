@@ -281,7 +281,7 @@ int main(int argc, const char* const * argv)
     settings.verbosity = 1;
 
     std::vector<mcgs::TestCSRMatrix::Value> buffer(adaptor.columnCount);
-    const auto initialResidual = mcgs::residual(adaptor, solution.data(), vector.data(), buffer.data());
+    const auto initialResidual = mcgs::residual(adaptor, solution.data(), vector.data());
 
     // Serial relaxation
     std::fill(solution.begin(), solution.end(), 0.0);
@@ -293,7 +293,7 @@ int main(int argc, const char* const * argv)
             return MCGS_FAILURE;
         }
     }
-    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data(), buffer.data()) / initialResidual << "\n";
+    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual << "\n";
 
     // Parallel relaxation
     std::fill(solution.begin(), solution.end(), 0.0);
@@ -305,7 +305,7 @@ int main(int argc, const char* const * argv)
             return MCGS_FAILURE;
         }
     }
-    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data(), buffer.data()) / initialResidual << "\n";
+    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual << "\n";
 
     // Reordered parallel relaxation
     mcgs::Partition<mcgs::TestCSRMatrix::Index>* pReorderedPartition = nullptr;
@@ -330,7 +330,7 @@ int main(int argc, const char* const * argv)
             return MCGS_FAILURE;
         }
     }
-    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data(), buffer.data()) / initialResidual << "\n";
+    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual << "\n";
 
     std::fill(solution.begin(), solution.end(), 0.0);
     {
@@ -341,7 +341,7 @@ int main(int argc, const char* const * argv)
             return MCGS_FAILURE;
         }
     }
-    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data(), buffer.data()) / initialResidual << "\n";
+    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual << "\n";
 
     {
         MCGS_SCOPED_TIMER("undo reordering");

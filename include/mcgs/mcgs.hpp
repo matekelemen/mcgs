@@ -88,8 +88,7 @@ template <class TIndex, class TValue>
 MCGS_EXPORT_SYMBOL
 TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
                 const TValue* pSolution,
-                const TValue* pRHS,
-                TValue* buffer) noexcept;
+                const TValue* pRHS) noexcept;
 
 
 enum struct Parallelization

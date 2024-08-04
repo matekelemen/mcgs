@@ -21,26 +21,24 @@ namespace mcgs {
 template <class TIndex, class TValue>
 TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
                 const TValue* pSolution,
-                const TValue* pRHS,
-                TValue* buffer) noexcept
+                const TValue* pRHS) noexcept
 {
-    std::copy(pRHS, pRHS + rMatrix.columnCount, buffer);
     TValue residual = 0;
 
     #ifdef MCGS_OPENMP
     #pragma omp parallel for reduction(+: residual)
     #endif
     for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
-        TValue& rResidualComponent = buffer[iRow];
+        TValue residualComponent = pRHS[iRow];
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
         const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
 
         for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            rResidualComponent -= rMatrix.pNonzeros[iEntry] * pSolution[iColumn];
+            residualComponent -= rMatrix.pNonzeros[iEntry] * pSolution[iColumn];
         } // for iEntry in range(iRowBegin, iRowEnd)
 
-        residual += rResidualComponent * rResidualComponent;
+        residual += residualComponent * residualComponent;
     } // for iRow in range(0, rowCount)
 
     return std::sqrt(residual);
@@ -258,7 +256,7 @@ int contiguousSweep(TValue* pSolution,
 
 template <class TIndex, class TValue>
 int randomAccessSweep(TValue* pSolution,
-                      const TValue* pSolutionBuffer,
+                      [[maybe_unused]] const TValue* pSolutionBuffer,
                       const CSRAdaptor<TIndex,TValue>& rMatrix,
                       const TValue* pRHS,
                       const SolveSettings<TIndex,TValue> settings,
@@ -296,10 +294,12 @@ int randomAccessSweep(TValue* pSolution,
         TIndex iEntry = iEntryBegin;
         for (; iEntry<iEntryEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
+            const TValue nonzero = rMatrix.pNonzeros[iEntry];
+
             if (iColumn < iRow) {
-                value -= rMatrix.pNonzeros[iEntry] * pSolution[iColumn];
+                value -= nonzero * pSolution[iColumn];
             } else if (iColumn == iRow) {
-                diagonal = rMatrix.pNonzeros[iEntry];
+                diagonal = nonzero;
                 ++iEntry;
                 break;
             } else {
@@ -310,7 +310,9 @@ int randomAccessSweep(TValue* pSolution,
 
         for (; iEntry<iEntryEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            value -= rMatrix.pNonzeros[iEntry] * pSolutionBuffer[iColumn];
+            const TValue nonzero = rMatrix.pNonzeros[iEntry];
+
+            value -= nonzero * pSolutionBuffer[iColumn];
         }
 
         pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);
@@ -335,7 +337,7 @@ int solve(TValue* pSolution,
 
     std::vector<TValue> buffer(rMatrix.columnCount);
     const TValue initialResidual = 3 <= settings.verbosity ?
-                                   residual(rMatrix, pSolution, pRHS, buffer.data()) :
+                                   residual(rMatrix, pSolution, pRHS) :
                                    static_cast<TValue>(1);
 
     for (TIndex iIteration=0; iIteration<settings.maxIterations; ++iIteration) {
@@ -356,7 +358,7 @@ int solve(TValue* pSolution,
         if (3 <= settings.verbosity) {
             std::cout << "iteration " << iIteration
                       << " residual: "
-                      << residual(rMatrix, pSolution, pRHS, buffer.data()) / initialResidual
+                      << residual(rMatrix, pSolution, pRHS) / initialResidual
                       << "\n";
         }
     }
@@ -420,7 +422,7 @@ int solve(TValue* pSolution,
 
         std::vector<TValue> buffer(rMatrix.columnCount);
         const TValue initialResidual = 3 <= settings.verbosity ?
-                                    residual(rMatrix, pSolution, pRHS, buffer.data()) :
+                                    residual(rMatrix, pSolution, pRHS) :
                                     static_cast<TValue>(1);
 
         for (TIndex iIteration=0; iIteration<settings.maxIterations; ++iIteration) {
@@ -446,6 +448,10 @@ int solve(TValue* pSolution,
                         }
                         return MCGS_FAILURE;
                     }
+
+                    //std::copy(pSolution + *pPartition->begin(iPartition),
+                    //          pSolution + *pPartition->end(iPartition),
+                    //          buffer.data() + *pPartition->begin(iPartition));
                 } /*if pPartition->isContiguous()*/ else {
                     if (randomAccessSweep(pSolution,
                                           buffer.data(),
@@ -464,13 +470,19 @@ int solve(TValue* pSolution,
                         }
                         return MCGS_FAILURE;
                     }
+
+                    //const auto itRowIndexEnd = pPartition->end(iPartition);
+                    //for (auto itRowIndex=pPartition->begin(iPartition); itRowIndex!=itRowIndexEnd; ++itRowIndex) {
+                    //    const TIndex iRow = *itRowIndex;
+                    //    buffer[iRow] = pSolution[iRow];
+                    //}
                 }
             } // for iPartition in range(partitionCount)
 
             if (3 <= settings.verbosity) {
                 std::cout << "iteration " << iIteration
                         << " residual: "
-                        << residual(rMatrix, pSolution, pRHS, buffer.data()) / initialResidual
+                        << residual(rMatrix, pSolution, pRHS) / initialResidual
                         << "\n";
             } // if 3 <= settings.verbosity
         } // for iIteration in range(settings.maxIterations)
@@ -483,8 +495,7 @@ int solve(TValue* pSolution,
 #define MCGS_INSTANTIATE_SOLVE(TIndex, TValue)                              \
     template TValue residual(const CSRAdaptor<TIndex,TValue>&,              \
                              const TValue*,                                 \
-                             const TValue*,                                 \
-                             TValue*) noexcept;                             \
+                             const TValue*) noexcept;                       \
     template int solve<TIndex,TValue>(TValue*,                              \
                                       const CSRAdaptor<TIndex,TValue>&,     \
                                       const TValue*,                        \
