@@ -50,7 +50,7 @@ jobs:
                     export OMP_NUM_THREADS=$threadCount
                     if ! build/bin/mcgs_testrunner                \
                             test/${case}.mm test/${case}_rhs.mm   \
-                            -s $shrinkingFactor $shrinkingFactor  \
+                            -s $shrinkingFactor                   \
                             -i 1e2
                       then exit 1
                     fi
