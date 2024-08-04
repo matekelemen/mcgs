@@ -36,7 +36,7 @@ jobs:
           fi
       - name: Run tests
         run: |
-          cd $build
+          cd $test
           tar -xvzf input.tar.gz
           cd ..
 
