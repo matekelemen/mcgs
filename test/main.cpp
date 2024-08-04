@@ -241,7 +241,7 @@ int main(int argc, const char* const * argv)
             for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
                 const mcgs::TestCSRMatrix::Index iColumn = matrix.columnIndices[iEntry];
                 const auto neighborColor = colors[iColumn];
-                if (colorSettings.tolerance < std::abs(matrix.nonzeros[iEntry]) && iRow != iColumn) {
+                if (colorSettings.tolerance <= std::abs(matrix.nonzeros[iEntry]) && iRow != iColumn) {
                     if (neighborColor == currentColor) {
                         conflicts.emplace(iRow, std::vector<mcgs::TestCSRMatrix::Index> {})
                             .first->second.push_back(iColumn);
@@ -252,12 +252,12 @@ int main(int argc, const char* const * argv)
 
         std::cout << "palette size: " << palette.size() << std::endl;
         if (!conflicts.empty()) {
-            //for (const auto& [iRow, rConflicts] : conflicts) {
-            //    std::cerr << iRow << " is in conflict with ";
-            //    for (auto iColumn : rConflicts) std::cerr << iColumn << " ";
-            //    std::cerr << std::endl;
-            //}
-            std::cerr << "coloring failed; " << conflicts.size() << " rows are in conflict\n";
+            for (const auto& [iRow, rConflicts] : conflicts) {
+                std::cerr << iRow << "(" << colors[iRow] << ")" << " is in conflict with ";
+                for (auto iColumn : rConflicts) std::cerr << iColumn << "(" << colors[iColumn] << ") ";
+                std::cerr << std::endl;
+            }
+            std::cerr << "coloring failed because " << conflicts.size() << " rows are in conflict\n";
             return MCGS_FAILURE;
         } // if conflicts
     } // destroy conflicts, palette
