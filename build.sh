@@ -14,7 +14,7 @@ if ! cmake                                      \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON          \
     -DMCGS_BUILD_TESTS=ON                       \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo           \
-    -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer -fsanitize=address"
+    -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer"
     then exit 1
 fi
 
