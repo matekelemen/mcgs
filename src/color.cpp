@@ -166,42 +166,42 @@ int color(TColor* pColors,
 {
     // Cheap sanity checks
     if (rMatrix.rowCount < 0) {
-        if (1 < settings.verbosity) std::cerr << "Error: invalid number of rows " << rMatrix.rowCount << "\n";
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: invalid number of rows " << rMatrix.rowCount << "\n";
         return MCGS_FAILURE;
     }
 
     if (rMatrix.columnCount < 0) {
-        if (1 < settings.verbosity) std::cerr << "Error: invalid number of columns " << rMatrix.columnCount << "\n";
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: invalid number of columns " << rMatrix.columnCount << "\n";
         return MCGS_FAILURE;
     }
 
     if (rMatrix.nonzeroCount < 0) {
-        if (1 < settings.verbosity) std::cerr << "Error: invalid number of nonzeros " << rMatrix.nonzeroCount << "\n";
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: invalid number of nonzeros " << rMatrix.nonzeroCount << "\n";
         return MCGS_FAILURE;
     }
 
     if (!rMatrix.pRowExtents) {
-        if (1 < settings.verbosity) std::cerr << "Error: missing row data\n";
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: missing row data\n";
         return MCGS_FAILURE;
     }
 
     if (!rMatrix.pColumnIndices) {
-        if (1 < settings.verbosity) std::cerr << "Error: missing column data\n";
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: missing column data\n";
         return MCGS_FAILURE;
     }
 
     if (!rMatrix.pNonzeros) {
-        if (1 < settings.verbosity) std::cerr << "Error: missing nonzeros\n";
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: missing nonzeros\n";
         return MCGS_FAILURE;
     }
 
     if (!pColors) {
-        if (1 < settings.verbosity) std::cerr << "Error: missing output array\n";
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: missing output array\n";
         return MCGS_FAILURE;
     }
 
     if (rMatrix.rowCount != rMatrix.columnCount) {
-        if (1 < settings.verbosity) std::cerr << "Error: expecting a square matrix, but got "
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: expecting a square matrix, but got "
                                               << rMatrix.rowCount << "x" << rMatrix.columnCount << "\n";
         return MCGS_FAILURE;
     }
@@ -227,9 +227,9 @@ int color(TColor* pColors,
     } // for iRow in range(rowCount)
 
     if (2 <= settings.verbosity) {
-        std::cout << "max vertex degree: " << maxDegree
-                  << "\nmin vertex degree: " << minDegree
-                  << "\n";
+        std::cout << "mcgs: max vertex degree is " << maxDegree << '\n'
+                  << "mcgs: min vertex degree is " << minDegree << '\n'
+                  ;
     }
 
     // Allocate the palette of every vertex to the max possible (maximum vertex degree).
@@ -243,7 +243,7 @@ int color(TColor* pColors,
         TIndex(double(maxDegree) / double(shrinkingFactor)));
 
     if (3 <= settings.verbosity) {
-        std::cout << "initial palette size: " << initialPaletteSize << std::endl;
+        std::cout << "mcgs: initial palette size is " << initialPaletteSize << std::endl;
     }
 
     // Initialize the palette of all vertices to a shrunk set
@@ -274,7 +274,7 @@ int color(TColor* pColors,
         const TIndex uncoloredCount = uncolored.size();
 
         if (3 <= settings.verbosity) {
-            std::cout << "coloring iteration " << iterationCount++
+            std::cout << "mcgs: coloring iteration " << iterationCount++
                       << " (" << uncoloredCount << "/" << rMatrix.columnCount
                       << " left to color)\n";
         }
@@ -291,6 +291,8 @@ int color(TColor* pColors,
                 const int seed = 0;
             #endif
             std::mt19937 randomGenerator(seed);
+
+
 
             #ifdef MCGS_OPENMP
             #pragma omp for
@@ -347,7 +349,7 @@ int color(TColor* pColors,
             if (!extensionCounter) {
                 ++stallCounter;
                 if (0 <= settings.maxStallCount && settings.maxStallCount <= stallCounter) {
-                    if (1 <= settings.verbosity) std::cerr << "Error: reached stall limit (" << settings.maxStallCount << ")\n";
+                    if (1 <= settings.verbosity) std::cerr << "mcgs: error: reached stall limit (" << settings.maxStallCount << ")\n";
                     return MCGS_FAILURE;
                 }
             } else {

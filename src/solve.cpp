@@ -218,7 +218,7 @@ int contiguousSweep(TValue* pSolution,
 {
     if (iRowEnd < iRowBegin) {
         if (1 <= settings.verbosity) {
-            std::cerr << "Error: invalid range [" << iRowBegin << ", " << iRowEnd << "[\n";
+            std::cerr << "mcgs: error: invalid range [" << iRowBegin << ", " << iRowEnd << "[\n";
         }
         return MCGS_FAILURE;
     }
@@ -232,7 +232,7 @@ int contiguousSweep(TValue* pSolution,
                             iRowBegin,
                             iRowEnd,
                             threadCount);
-    } /*if settings.parallelization == RowWise*/ else if (settings.parallelization == Parallelization::NonzeroWise) {
+    } /*if settings.parallelization == RowWise*/ else if (settings.parallelization == Parallelization::EntryWise) {
         return nonzeroWiseSweep(pSolution,
                                 pSolutionBuffer,
                                 rMatrix,
@@ -241,7 +241,7 @@ int contiguousSweep(TValue* pSolution,
                                 iRowBegin,
                                 iRowEnd,
                                 threadCount);
-    } /*if settings.parallelization == Parallelization::NonzeroWise*/ else if (settings.parallelization == Parallelization::None) {
+    } /*if settings.parallelization == Parallelization::EntryWise*/ else if (settings.parallelization == Parallelization::None) {
         return sweep(pSolution,
                      rMatrix,
                      pRHS,
@@ -255,74 +255,6 @@ int contiguousSweep(TValue* pSolution,
 
 
 template <class TIndex, class TValue>
-int randomAccessSweep(TValue* pSolution,
-                      [[maybe_unused]] const TValue* pSolutionBuffer,
-                      const CSRAdaptor<TIndex,TValue>& rMatrix,
-                      const TValue* pRHS,
-                      const SolveSettings<TIndex,TValue> settings,
-                      const TIndex* itPartitionBegin,
-                      const TIndex* itPartitionEnd,
-                      [[maybe_unused]] const int threadCount)
-{
-    if (itPartitionEnd < itPartitionBegin) {
-        if (1 <= settings.verbosity) {
-            std::cerr << "Error: invalid partition range\n";
-        }
-        return MCGS_FAILURE;
-    }
-
-    if (settings.parallelization == Parallelization::NonzeroWise) {
-        if (1 <= settings.verbosity) {
-            std::cerr << "Error: cannot perform nonzero-wise parallelization on random access partitions\n";
-        }
-        return MCGS_FAILURE;
-    }
-
-    const auto partitionSize = static_cast<typename Partition<TIndex>::size_type>(std::distance(itPartitionBegin, itPartitionEnd));
-
-    #ifdef MCGS_OPENMP
-    #pragma omp parallel for num_threads(threadCount)
-    #endif
-    for (typename Partition<TIndex>::size_type iLocal=0; iLocal<partitionSize; ++iLocal) {
-        const TIndex iRow = itPartitionBegin[iLocal];
-        TValue value = pRHS[iRow];
-        TValue diagonal = 1;
-
-        const TIndex iEntryBegin = rMatrix.pRowExtents[iRow];
-        const TIndex iEntryEnd = rMatrix.pRowExtents[iRow + 1];
-
-        TIndex iEntry = iEntryBegin;
-        for (; iEntry<iEntryEnd; ++iEntry) {
-            const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            const TValue nonzero = rMatrix.pNonzeros[iEntry];
-
-            if (iColumn < iRow) {
-                value -= nonzero * pSolution[iColumn];
-            } else if (iColumn == iRow) {
-                diagonal = nonzero;
-                ++iEntry;
-                break;
-            } else {
-                ++iEntry;
-                break;
-            }
-        } /*for iEntry in range(iEntryBegin, iEntryEnd)*/
-
-        for (; iEntry<iEntryEnd; ++iEntry) {
-            const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            const TValue nonzero = rMatrix.pNonzeros[iEntry];
-
-            value -= nonzero * pSolutionBuffer[iColumn];
-        }
-
-        pSolution[iRow] += settings.relaxation * (value / diagonal - pSolution[iRow]);
-    } // for iLocal in range(partitionSize)
-
-    return MCGS_SUCCESS;
-}
-
-
-template <class TIndex, class TValue>
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
@@ -330,7 +262,7 @@ int solve(TValue* pSolution,
 {
     if (settings.parallelization != Parallelization::None) {
         if (1 <= settings.verbosity) {
-            std::cerr << "Error: parallel Gauss-Seidel requires a partition\n";
+            std::cerr << "mcgs: error: parallel Gauss-Seidel requires a partition\n";
         }
         return MCGS_FAILURE;
     }
@@ -348,7 +280,7 @@ int solve(TValue* pSolution,
                   rMatrix.rowCount,
                   settings) != MCGS_SUCCESS) {
             if (1 <= settings.verbosity) {
-                std::cerr << "Error: serial Gauss-Seidel failed at iteration "
+                std::cerr << "mcgs: error: serial Gauss-Seidel failed at iteration "
                           << iIteration
                           << '\n';
             }
@@ -383,7 +315,7 @@ int solve(TValue* pSolution,
 
     if (maxThreadCount < 1) {
         if (1 <= settings.verbosity) {
-            std::cerr << "Error: the maximum number of allowed threads must be at least 1\n";
+            std::cerr << "mcgs: error: maximum number of allowed threads must be at least 1\n";
         }
         return MCGS_FAILURE;
     }
@@ -440,7 +372,7 @@ int solve(TValue* pSolution,
                                         *pPartition->end(iPartition),
                                         threadCount) != MCGS_SUCCESS) {
                         if (1 <= settings.verbosity) {
-                            std::cerr << "Error: parallel contiguous Gauss-Seidel failed at iteration "
+                            std::cerr << "mcgs: error: parallel Gauss-Seidel failed at iteration "
                                       << iIteration
                                       << " on partition "
                                       << iPartition
@@ -448,42 +380,19 @@ int solve(TValue* pSolution,
                         }
                         return MCGS_FAILURE;
                     }
-
-                    //std::copy(pSolution + *pPartition->begin(iPartition),
-                    //          pSolution + *pPartition->end(iPartition),
-                    //          buffer.data() + *pPartition->begin(iPartition));
                 } /*if pPartition->isContiguous()*/ else {
-                    if (randomAccessSweep(pSolution,
-                                          buffer.data(),
-                                          rMatrix,
-                                          pRHS,
-                                          settings,
-                                          pPartition->begin(iPartition),
-                                          pPartition->end(iPartition),
-                                          threadCount) != MCGS_SUCCESS) {
-                        if (1 <= settings.verbosity) {
-                            std::cerr << "Error: parallel random-access Gauss-Seidel failed at iteration "
-                                      << iIteration
-                                      << " on partition "
-                                      << iPartition
-                                      << '\n';
-                        }
-                        return MCGS_FAILURE;
+                    if (1 <= settings.verbosity) {
+                        std::cerr << "mcgs: error: parallel Gauss-Seidel requires a reordered system\n";
                     }
-
-                    //const auto itRowIndexEnd = pPartition->end(iPartition);
-                    //for (auto itRowIndex=pPartition->begin(iPartition); itRowIndex!=itRowIndexEnd; ++itRowIndex) {
-                    //    const TIndex iRow = *itRowIndex;
-                    //    buffer[iRow] = pSolution[iRow];
-                    //}
+                    return MCGS_FAILURE;
                 }
             } // for iPartition in range(partitionCount)
 
             if (3 <= settings.verbosity) {
-                std::cout << "iteration " << iIteration
-                        << " residual: "
+                std::cout << "mcgs: iteration " << iIteration
+                        << ", residual "
                         << residual(rMatrix, pSolution, pRHS) / initialResidual
-                        << "\n";
+                        << '\n';
             } // if 3 <= settings.verbosity
         } // for iIteration in range(settings.maxIterations)
     }

@@ -95,7 +95,7 @@ enum struct Parallelization
 {
     None        = 1,
     RowWise     = 2,
-    NonzeroWise = 4
+    EntryWise   = 4
 };
 
 
