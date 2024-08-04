@@ -36,6 +36,9 @@ jobs:
           fi
       - name: Run tests
         run: |
+          git install lfs
+          git lfs pull
+
           cd test
           tar -xvzf input.tar.gz
           cd ..
