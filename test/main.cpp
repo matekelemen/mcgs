@@ -150,27 +150,44 @@ private:
 #define MCGS_SCOPED_TIMER(TAG) [[maybe_unused]] ScopedTimer MCGS_SCOPED_TIMER_INSTANCE(TAG)
 
 
-void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value>& rMatrix)
+void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value>& rMatrix,
+           std::ostream* pStream = &std::cout)
 {
-    std::ofstream file("matrix.mm");
-    file << std::fixed << std::setprecision(12) << std::scientific;
-    file << "%%MatrixMarket matrix coordinate real general\n";
-    file << rMatrix.rowCount << " " << rMatrix.columnCount << " " << rMatrix.nonzeroCount << "\n";
+    std::ostream& rStream = *pStream;
+    rStream << std::fixed << std::setprecision(12) << std::scientific;
+    rStream << "%%MatrixMarket matrix coordinate real general\n";
+    rStream << rMatrix.rowCount << " " << rMatrix.columnCount << " " << rMatrix.nonzeroCount << "\n";
     for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
         const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
         for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
             const auto iColumn = rMatrix.pColumnIndices[iEntry];
             const auto nonzero = rMatrix.pNonzeros[iEntry];
-            file << iRow + 1 << " " << iColumn + 1 << " " << nonzero << "\n";
+            rStream << iRow + 1 << " " << iColumn + 1 << " " << nonzero << "\n";
         }
     }
 }
 
 
+int compare(const double left, const double right)
+{
+    constexpr double absoluteTolerance = 1e-10;
+    constexpr double relativeTolerance = 1e-14;
+
+    const double norm = std::min(std::abs(left) + std::abs(right),
+                                 std::numeric_limits<double>::max());
+    bool equal = std::abs(left - right) < std::max(absoluteTolerance, relativeTolerance * norm);
+
+    if (equal) return MCGS_SUCCESS;
+    else return MCGS_FAILURE;
+}
+
+
 int main(int argc, const char* const * argv)
 {
+    // ======================
     // --- Reading ---
+    // ======================
     const auto arguments = parseArguments(argc, argv);
 
     // Read the input matrix and vector
@@ -209,13 +226,15 @@ int main(int argc, const char* const * argv)
     adaptor.pColumnIndices  = matrix.columnIndices.data();
     adaptor.pNonzeros       = matrix.nonzeros.data();
 
+    // ======================
     // --- Coloring ---
+    // ======================
     std::vector<unsigned> colors(matrix.columnCount, std::numeric_limits<unsigned>::max());
     mcgs::ColorSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> colorSettings;
 
     {
         MCGS_SCOPED_TIMER("coloring");
-        colorSettings.verbosity = 2;
+        colorSettings.verbosity = 1;
         colorSettings.shrinkingFactor = arguments.shrinkingFactor;
         colorSettings.maxStallCount = 1e4;
         colorSettings.tolerance = 1e-10;
@@ -262,7 +281,9 @@ int main(int argc, const char* const * argv)
         } // if conflicts
     } // destroy conflicts, palette
 
+    // ======================
     // --- Partitioning ---
+    // ======================
     mcgs::Partition<mcgs::TestCSRMatrix::Index>* pPartition = nullptr;
 
     {
@@ -274,7 +295,9 @@ int main(int argc, const char* const * argv)
         }
     }
 
+    // ======================
     // --- Relaxation ---
+    // ======================
     std::vector<mcgs::TestCSRMatrix::Value> solution(adaptor.columnCount);
     mcgs::SolveSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> settings;
     settings.maxIterations = arguments.maxIterations;
@@ -293,9 +316,10 @@ int main(int argc, const char* const * argv)
             return MCGS_FAILURE;
         }
     }
-    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual << "\n";
+    const double serialResidual = mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual;
+    std::cout << "residual " << serialResidual << "\n";
 
-    // Parallel relaxation
+    // Reordering
     mcgs::Partition<mcgs::TestCSRMatrix::Index>* pReorderedPartition = nullptr;
     {
         MCGS_SCOPED_TIMER("reordering");
@@ -309,6 +333,19 @@ int main(int argc, const char* const * argv)
         }
     }
 
+    // Reordered relaxation
+    std::fill(solution.begin(), solution.end(), 0.0);
+    {
+        MCGS_SCOPED_TIMER("reordered serial relaxation");
+        settings.parallelization = mcgs::Parallelization::None;
+        if (mcgs::solve(solution.data(), adaptor, vector.data(), settings) != MCGS_SUCCESS) {
+            std::cerr << "reordered serial relaxation failed\n";
+            return MCGS_FAILURE;
+        }
+    }
+    const double reorderedSerialResidual = mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual;
+    std::cout << "residual " << reorderedSerialResidual << "\n";
+
     std::fill(solution.begin(), solution.end(), 0.0);
     {
         MCGS_SCOPED_TIMER("row-wise parallel relaxation");
@@ -318,7 +355,8 @@ int main(int argc, const char* const * argv)
             return MCGS_FAILURE;
         }
     }
-    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual << "\n";
+    const double rowWiseParallelResidual = mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual;
+    std::cout << "residual " << rowWiseParallelResidual << "\n";
 
     std::fill(solution.begin(), solution.end(), 0.0);
     {
@@ -329,14 +367,53 @@ int main(int argc, const char* const * argv)
             return MCGS_FAILURE;
         }
     }
-    std::cout << "residual " << mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual << "\n";
+    const double entrywiseParallelResidual = mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual;
+    std::cout << "residual " << entrywiseParallelResidual << "\n";
 
     {
         MCGS_SCOPED_TIMER("undo reordering");
-        mcgs::revertReorder(solution.data(), pPartition);
+        bool success = mcgs::revertReorder(matrix.rowCount, matrix.columnCount, matrix.nonzeroCount,
+                                           matrix.rowExtents.data(), matrix.columnIndices.data(), matrix.nonzeros.data(),
+                                           vector.data(),
+                                           pPartition) == MCGS_SUCCESS;
+        success &= mcgs::revertReorder(solution.data(), solution.size(), pPartition) == MCGS_SUCCESS;
+
+        if (!success) {
+            std::cerr << "revert reorder failed\n";
+            return MCGS_FAILURE;
+        }
     }
 
-    // Cleanup
+    const double revertReorderedResidual = mcgs::residual(adaptor, solution.data(), vector.data()) / initialResidual;
+    std::cout << "residual " << revertReorderedResidual << "\n";
+
+    // =======================
+    // --- Residual Checks ---
+    // =======================
+    if (compare(reorderedSerialResidual, rowWiseParallelResidual) != MCGS_SUCCESS) {
+        std::cerr << "row-wise parallel residual is incorrect ("
+                  << std::scientific << std::fixed << std::setprecision(20)
+                  << rowWiseParallelResidual << " != " << reorderedSerialResidual << ")\n";
+        return MCGS_FAILURE;
+    }
+
+    if (compare(reorderedSerialResidual, entrywiseParallelResidual) != MCGS_SUCCESS) {
+        std::cerr << "entrywise parallel residual is incorrect ("
+                  << std::scientific << std::fixed << std::setprecision(20)
+                  << entrywiseParallelResidual << " != " << reorderedSerialResidual << ")\n";
+        return MCGS_FAILURE;
+    }
+
+    if (compare(reorderedSerialResidual, revertReorderedResidual) != MCGS_SUCCESS) {
+        std::cerr << "reverse reordered residual is incorrect ("
+                  << std::scientific << std::fixed << std::setprecision(20)
+                  << revertReorderedResidual << " != " << reorderedSerialResidual << ")\n";
+        return MCGS_FAILURE;
+    }
+
+    // ======================
+    // --- Cleanup ---
+    // ======================
     mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pReorderedPartition);
     mcgs::destroyPartition<mcgs::TestCSRMatrix::Index>(pPartition);
 

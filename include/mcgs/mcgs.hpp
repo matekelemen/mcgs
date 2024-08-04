@@ -81,7 +81,17 @@ MCGS_EXPORT_SYMBOL
 
 template <class TIndex, class TValue>
 MCGS_EXPORT_SYMBOL
-int revertReorder(TValue* pRHS, const Partition<TIndex>* pPartition);
+int revertReorder(TValue* pRHS,
+                  const TIndex columnCount,
+                  const Partition<TIndex>* pPartition);
+
+
+template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
+int revertReorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
+                  TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
+                  TValue* pRHS,
+                  const Partition<TIndex>* pPartition);
 
 
 template <class TIndex, class TValue>
