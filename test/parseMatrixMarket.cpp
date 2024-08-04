@@ -215,7 +215,6 @@ bool parseDenseDataLine(std::istream& rStream, TestDenseVector& rVector)
     if (rStream.eof() || rStream.bad()) {
         rStream.clear();
         rStream.ignore(ignoreSize, '\n');
-        rVector.pop_back();
         return false;
     }
 
