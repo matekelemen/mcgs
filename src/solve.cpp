@@ -260,13 +260,6 @@ int solve(TValue* pSolution,
           const TValue* pRHS,
           const SolveSettings<TIndex,TValue> settings)
 {
-    if (settings.parallelization != Parallelization::None) {
-        if (1 <= settings.verbosity) {
-            std::cerr << "mcgs: error: parallel Gauss-Seidel requires a partition\n";
-        }
-        return MCGS_FAILURE;
-    }
-
     std::vector<TValue> buffer(rMatrix.columnCount);
     const TValue initialResidual = 3 <= settings.verbosity ?
                                    residual(rMatrix, pSolution, pRHS) :
