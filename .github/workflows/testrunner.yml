@@ -28,7 +28,12 @@ jobs:
         with:
           fetch-depth: 0
       - name: Build
-        run: ./build.sh -t "${{ matrix.type }}" -o "-fsanitize=${{ matrix.sanitizer }}"
+        run: |
+          if [ "${{ matrix.sanitizer }}" = "none" ]; then
+            ./build.sh -t "${{ matrix.type }}"
+          else
+            ./build.sh -t "${{ matrix.type }}" -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
+          fi
       - name: Run tests
         run: |
           cd $build
