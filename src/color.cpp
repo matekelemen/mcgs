@@ -269,7 +269,8 @@ int color(TColor* pColors,
 
     // Track vertices that need to be colored.
     Mask coloredMask(rMatrix.columnCount, false);
-    std::vector<TIndex> uncolored;
+    std::vector<TIndex> uncolored(rMatrix.rowCount);
+    std::iota(uncolored.begin(), uncolored.end(), TIndex(0));
 
     #ifdef MCGS_OPENMP
     [[maybe_unused]] const int threadCount = omp_get_max_threads();
@@ -281,21 +282,13 @@ int color(TColor* pColors,
     std::size_t iterationCount = 0ul;
     int stallCounter = 0;
 
-    do {
-        uncolored.clear();
-        for (TIndex iVertex=0; iVertex<static_cast<TIndex>(coloredMask.size()); ++iVertex) {
-            if (!coloredMask[iVertex]) uncolored.push_back(iVertex);
-        }
-
-        // Check for early exit.
+    while (!uncolored.empty()) {
         const TIndex uncoloredCount = uncolored.size();
         if (3 <= settings.verbosity) {
             std::cout << "mcgs: coloring iteration " << iterationCount++
                       << " (" << uncoloredCount << "/" << rMatrix.columnCount
                       << " left to color)\n";
         }
-
-        if (!uncoloredCount) break;
 
         // Assign random colors to each remaining vertex from their palette.
         #ifdef MCGS_OPENMP
@@ -381,22 +374,26 @@ int color(TColor* pColors,
             } // for iVisit in range(uncoloredCount)
         } // omp parallel
 
-        if (uncolored.size() == static_cast<std::size_t>(std::count_if(coloredMask.begin(), coloredMask.end(), [](const auto flag) {return !flag;}))) {
+        // Update remaining vertices
+        {
+            std::vector<TIndex> swap;
+            swap.reserve(uncolored.size());
+
+            for (TIndex iVisit=0; iVisit<static_cast<TIndex>(uncolored.size()); ++iVisit) {
+                const TIndex iVertex = uncolored[iVisit];
+                if (!coloredMask[iVertex]) swap.push_back(iVertex);
+            }
+
+            uncolored.swap(swap);
+        }
+
+        if (static_cast<TIndex>(uncolored.size()) == uncoloredCount) {
             // Failed to color any vertices => extend the palette of some random vertices
             const TIndex maxExtensions = std::max(TIndex(1), TIndex(25 * uncolored.size() / 100));
             TIndex extensionCounter = 0;
 
-            //#ifdef MCGS_OPENMP
-            //#pragma omp parallel for reduction(+: extensionCounter)
-            //#endif
-            //for (TIndex iUncolored=0; iUncolored<uncoloredCount; ++iUncolored) {
-            //    if (extensionCounter < maxExtensions) {
-            //        extendPalette(palettes[uncolored[iUncolored]]);
-            //        ++extensionCounter;
-            //    }
-            //}
-            // TEMPORARY
-            for (TIndex iUncolored=0; iUncolored<uncoloredCount && extensionCounter < maxExtensions; ++iUncolored) {
+            // @todo parallelize
+            for (TIndex iUncolored=0; iUncolored<static_cast<TIndex>(uncolored.size()) && extensionCounter < maxExtensions; ++iUncolored) {
                 extendPalette(palettes[uncolored[iUncolored]]);
                 ++extensionCounter;
             }
@@ -413,7 +410,7 @@ int color(TColor* pColors,
         } else {
             stallCounter = 0;
         }
-    } while (true);
+    };
 
     for ([[maybe_unused]] MCGS_MUTEX& rMutex : mutexes) MCGS_DEINITIALIZE_MUTEX(rMutex);
 
