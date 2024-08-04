@@ -354,9 +354,9 @@ int color(TColor* pColors,
                 if (colored) {
                     MCGS_ACQUIRE_MUTEX(mutexes[iVertex]);
                     coloredMask[iVertex] = true;
+                    palettes[iVertex].palette = std::vector<TColor> {};
                     MCGS_RELEASE_MUTEX(mutexes[iVertex]);
 
-                    palettes[iVertex].palette = std::vector<TColor> {};
 
                     for (TIndex iNeighbor : neighbors[iVertex]) {
                         if (!coloredMask[iNeighbor]) {
