@@ -37,7 +37,13 @@ while getopts ":h p t: j: b: i: o:" arg; do
             ;;
         t)  # Set build type
             buildType="$OPTARG"
-            [[ "${buildType}" = "Debug" || "${buildType}" = "RelWithDebInfo" || "${buildType}" = "Release" ]] || (print_help && echo "Invalid build type: $buildType" && exit 1)
+            if ! [[ "${buildType}" = "Debug"            \
+                 || "${buildType}" = "RelWithDebInfo"   \
+                 || "${buildType}" = "Release" ]]; then
+                 print_help
+                 echo "Invalid build type: $buildType"
+                 exit 1
+            fi
             ;;
         j)  # Set the number of build jobs
             if [[ "$OPTARG" =~ ^[1-9][0-9]*$ ]]; then
