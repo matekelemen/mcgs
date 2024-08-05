@@ -426,7 +426,7 @@ struct SolveSettings
 ///
 /// @param pSolution Solution array @f$x_j@f$. Size must be at least equal to the number of @ref CSRAdaptor::columnCount "columns" in @p rMatrix.
 /// @param rMatrix Left hand side square matrix in compressed sparse row format @f$a_{ij}@f$.
-/// @param pRHS Right hand side vector @f$b_i@f$. Size must be at least equal to the number of @ref CSRAdaptor::rowCount "rowCount" in @p rMatrix.
+/// @param pRHS Right hand side vector @f$b_i@f$. Size must be at least equal to the number of @ref CSRAdaptor::rowCount "rows" in @p rMatrix.
 /// @param settings @ref SolveSettings "algorithmic parameters and other settings" to apply during relaxation.
 ///
 /// @return @ref MCGS_SUCCESS if successful, otherwise @ref MCGS_FAILURE.
@@ -463,7 +463,7 @@ int solve(TValue* pSolution,
 ///
 /// @param pSolution Solution array @f$x_j@f$. Size must be at least equal to the number of @ref CSRAdaptor::columnCount "columns" in @p rMatrix.
 /// @param rMatrix Left hand side square matrix in compressed sparse row format @f$a_{ij}@f$.
-/// @param pRHS Right hand side vector @f$b_i@f$. Size must be at least equal to the number of @ref CSRAdaptor::rowCount "rowCount" in @p rMatrix.
+/// @param pRHS Right hand side vector @f$b_i@f$. Size must be at least equal to the number of @ref CSRAdaptor::rowCount "rows" in @p rMatrix.
 /// @param pPartition Contiguous partition of the input matrix.
 /// @param settings @ref SolveSettings "algorithmic parameters and other settings" to apply during relaxation.
 ///
