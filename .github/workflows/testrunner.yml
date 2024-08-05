@@ -57,3 +57,34 @@ jobs:
               done
             done
           done
+
+  generate-docs:
+    needs: testrunner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Dependencies
+        run: sudo apt install findutils doxygen graphviz
+      - name: Update doc branch with current master
+        run: |
+          git config --local user.name $USER_NAME
+          git config --local user.email "in@valid.email"
+          git branch -D doc &>/dev/null || true
+          git checkout -b doc
+        env:
+          USER_NAME: matekelemen
+      - name: Generate Docs
+        run: cs docs && doxygen doxyfile && cd ..
+      - name: Generate root index.html
+        run: echo "<meta http-equiv=\"refresh\" content=\"0; docs/html/index.html\">" > index.html
+      - name: Update Remote
+        run: |
+          git add index.html docs/html -f
+          git commit -m "update docs"
+          git push -f https://$USER_NAME:$GITHUB_TOKEN@github.com/matekelemen/mcgs.git doc
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          USER_NAME: matekelemen
