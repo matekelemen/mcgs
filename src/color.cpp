@@ -48,7 +48,7 @@ using NeighborSet = std::vector<TIndex>;
 /// @brief Collect all edges of an undirected graph.
 template <class TIndex, class TValue>
 std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue>& rMatrix,
-                                                  const ColorSettings<TIndex,TValue> settings,
+                                                  const ColorSettings<TValue> settings,
                                                   [[maybe_unused]] MCGS_MUTEX_ARRAY& rMutexes)
 {
     std::vector<NeighborSet<TIndex>> neighbors(rMatrix.columnCount);
@@ -62,7 +62,7 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
 
         for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            const TValue value = rMatrix.pNonzeros[iEntry];
+            const TValue value = rMatrix.pEntries[iEntry];
             if (settings.tolerance <= std::abs(value) && iRow != iColumn) {
                 {
                     MCGS_ACQUIRE_MUTEX(rMutexes[iRow]);
@@ -171,7 +171,7 @@ void removeFromPalette(const TColor color,
 template <class TIndex, class TValue, class TColor>
 int color(TColor* pColors,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
-          const ColorSettings<TIndex,TValue> settings)
+          const ColorSettings<TValue> settings)
 {
     // Cheap sanity checks
     if (rMatrix.rowCount < 0) {
@@ -184,8 +184,8 @@ int color(TColor* pColors,
         return MCGS_FAILURE;
     }
 
-    if (rMatrix.nonzeroCount < 0) {
-        if (1 < settings.verbosity) std::cerr << "mcgs: error: invalid number of nonzeros " << rMatrix.nonzeroCount << "\n";
+    if (rMatrix.entryCount < 0) {
+        if (1 < settings.verbosity) std::cerr << "mcgs: error: invalid number of nonzeros " << rMatrix.entryCount << "\n";
         return MCGS_FAILURE;
     }
 
@@ -199,7 +199,7 @@ int color(TColor* pColors,
         return MCGS_FAILURE;
     }
 
-    if (!rMatrix.pNonzeros) {
+    if (!rMatrix.pEntries) {
         if (1 < settings.verbosity) std::cerr << "mcgs: error: missing nonzeros\n";
         return MCGS_FAILURE;
     }
@@ -421,7 +421,7 @@ int color(TColor* pColors,
 #define MCGS_INSTANTIATE_COLOR(TIndex, TValue, TColor)              \
     template int color(TColor* pColors,                             \
                        const CSRAdaptor<TIndex,TValue>& rMatrix,    \
-                       const ColorSettings<TIndex,TValue> settings);
+                       const ColorSettings<TValue> settings);
 
 MCGS_INSTANTIATE_COLOR(int, double, unsigned);
 MCGS_INSTANTIATE_COLOR(long, double, unsigned);

@@ -35,7 +35,7 @@ public:
     using size_type = std::size_t;
 
     template <class TColor>
-    Partition(const TColor* pColors, const TIndex columnCount);
+    Partition(const TColor* pColors, const TIndex rowCount);
 
     Partition(std::vector<TIndex>&& rPartitionExtents,
               std::vector<TIndex>&& rRowIndices) noexcept;

@@ -235,7 +235,7 @@ int main(int argc, const char* const * argv)
     // --- Coloring ---
     // ======================
     std::vector<unsigned> colors(matrix.columnCount, std::numeric_limits<unsigned>::max());
-    mcgs::ColorSettings<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value> colorSettings;
+    mcgs::ColorSettings<mcgs::TestCSRMatrix::Value> colorSettings;
 
     {
         MCGS_SCOPED_TIMER("coloring");

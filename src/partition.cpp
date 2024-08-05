@@ -14,7 +14,7 @@ namespace mcgs {
 
 template <class TIndex>
 template <class TColor>
-Partition<TIndex>::Partition(const TColor* pColors, const TIndex columnCount)
+Partition<TIndex>::Partition(const TColor* pColors, const TIndex rowCount)
     : _isContiguous(false),
       _partitionExtents(),
       _rowIndices()
@@ -24,15 +24,15 @@ Partition<TIndex>::Partition(const TColor* pColors, const TIndex columnCount)
         std::vector<TIndex>
     > partitionMap;
 
-    for (TIndex iColumn=0; iColumn<columnCount; ++iColumn) {
+    for (TIndex iColumn=0; iColumn<rowCount; ++iColumn) {
         const TColor color = pColors[iColumn];
         partitionMap.emplace(color, std::vector<TIndex> {}) // <== make sure an entry is mapped to color
             .first                                          // <== iterator pointing to the entry
             ->second                                        // <== reference to the mapped vector
             .push_back(iColumn);                            // <== insert the column index into the mapped vector
-    } // for iColumn in range(columnCount)
+    } // for iColumn in range(rowCount)
 
-    _rowIndices.resize(columnCount + 1);
+    _rowIndices.resize(rowCount + 1);
     _partitionExtents.resize(partitionMap.size() + 1);
 
     TIndex iColor = 0;
@@ -47,7 +47,7 @@ Partition<TIndex>::Partition(const TColor* pColors, const TIndex columnCount)
     }
 
     _partitionExtents.back() = rowCounter;
-    _rowIndices.back() = columnCount;
+    _rowIndices.back() = rowCount;
     _isContiguous = std::is_sorted(_rowIndices.begin(), _rowIndices.end());
 }
 
@@ -65,9 +65,9 @@ Partition<TIndex>::Partition(std::vector<TIndex>&& rPartitionExtents,
 
 template <class TIndex, class TColor>
 [[nodiscard]] Partition<TIndex>* makePartition(const TColor* pColors,
-                                               const TIndex columnCount)
+                                               const TIndex rowCount)
 {
-    return new Partition<TIndex>(pColors, columnCount);
+    return new Partition<TIndex>(pColors, rowCount);
 }
 
 

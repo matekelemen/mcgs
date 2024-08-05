@@ -35,7 +35,7 @@ TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
 
         for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            residualComponent -= rMatrix.pNonzeros[iEntry] * pSolution[iColumn];
+            residualComponent -= rMatrix.pEntries[iEntry] * pSolution[iColumn];
         } // for iEntry in range(iRowBegin, iRowEnd)
 
         residual += residualComponent * residualComponent;
@@ -45,6 +45,7 @@ TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
 }
 
 
+/// @brief Do one Gauss-Seidel iteration in serial.
 template <class TIndex, class TValue>
 int sweep(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
@@ -62,7 +63,7 @@ int sweep(TValue* pSolution,
 
         for (TIndex iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            const TValue nonzero = rMatrix.pNonzeros[iEntry];
+            const TValue nonzero = rMatrix.pEntries[iEntry];
 
             if (iRow == iColumn) diagonal = nonzero;
             else value -= nonzero * pSolution[iColumn];
@@ -75,6 +76,7 @@ int sweep(TValue* pSolution,
 }
 
 
+/// @brief Do one Gauss-Seidel iteration, distributing jobs row-wise.
 template <class TIndex, class TValue>
 int rowWiseSweep(TValue* pSolution,
                  const TValue* pSolutionBuffer,
@@ -97,7 +99,7 @@ int rowWiseSweep(TValue* pSolution,
 
         for (TIndex iEntry=iEntryBegin; iEntry<iEntryEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            const TValue nonzero = rMatrix.pNonzeros[iEntry];
+            const TValue nonzero = rMatrix.pEntries[iEntry];
 
             if (iColumn < iRow) value -= nonzero * pSolution[iColumn];
             else if (iRow < iColumn) value -= nonzero * pSolutionBuffer[iColumn];
@@ -111,15 +113,16 @@ int rowWiseSweep(TValue* pSolution,
 }
 
 
+/// @brief Do one Gauss-Seidel iteration, distributing jobs by chunks of nonzeros in the matrix.
 template <class TIndex, class TValue>
-int nonzeroWiseSweep(TValue* pSolution,
-                     const TValue* pSolutionBuffer,
-                     const CSRAdaptor<TIndex,TValue>& rMatrix,
-                     const TValue* pRHS,
-                     const SolveSettings<TIndex,TValue> settings,
-                     const TIndex iRowBegin,
-                     const TIndex iRowEnd,
-                     const int threadCount)
+int entrywiseSweep(TValue* pSolution,
+                   const TValue* pSolutionBuffer,
+                   const CSRAdaptor<TIndex,TValue>& rMatrix,
+                   const TValue* pRHS,
+                   const SolveSettings<TIndex,TValue> settings,
+                   const TIndex iRowBegin,
+                   const TIndex iRowEnd,
+                   const int threadCount)
 {
     const TIndex partitionRowCount = iRowEnd - iRowBegin;
     const auto itEntryBegin = rMatrix.pRowExtents + iRowBegin;
@@ -173,7 +176,7 @@ int nonzeroWiseSweep(TValue* pSolution,
             }
 
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
-            const TValue nonzero = rMatrix.pNonzeros[iEntry];
+            const TValue nonzero = rMatrix.pEntries[iEntry];
 
             if (iColumn < iRow) {
                 localUpdates[iLocalRow] -= nonzero * pSolution[iColumn];
@@ -206,15 +209,16 @@ int nonzeroWiseSweep(TValue* pSolution,
 }
 
 
+/// @brief Decide which parallelization strategy to use and perform a single Gauss-Seidel iteration.
 template <class TIndex, class TValue>
-int contiguousSweep(TValue* pSolution,
-                    const TValue* pSolutionBuffer,
-                    const CSRAdaptor<TIndex,TValue>& rMatrix,
-                    const TValue* pRHS,
-                    const SolveSettings<TIndex,TValue> settings,
-                    const TIndex iRowBegin,
-                    const TIndex iRowEnd,
-                    const int threadCount)
+int dispatchSweep(TValue* pSolution,
+                  const TValue* pSolutionBuffer,
+                  const CSRAdaptor<TIndex,TValue>& rMatrix,
+                  const TValue* pRHS,
+                  const SolveSettings<TIndex,TValue> settings,
+                  const TIndex iRowBegin,
+                  const TIndex iRowEnd,
+                  const int threadCount)
 {
     if (iRowEnd < iRowBegin) {
         if (1 <= settings.verbosity) {
@@ -233,7 +237,7 @@ int contiguousSweep(TValue* pSolution,
                             iRowEnd,
                             threadCount);
     } /*if settings.parallelization == RowWise*/ else if (settings.parallelization == Parallelization::EntryWise) {
-        return nonzeroWiseSweep(pSolution,
+        return entrywiseSweep(pSolution,
                                 pSolutionBuffer,
                                 rMatrix,
                                 pRHS,
@@ -254,6 +258,7 @@ int contiguousSweep(TValue* pSolution,
 }
 
 
+/// @brief Perform Gauss-Seidel iterations in serial.
 template <class TIndex, class TValue>
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
@@ -292,6 +297,7 @@ int solve(TValue* pSolution,
 }
 
 
+/// @brief Perform Gauss-Seidel iterations in parallel.
 template <class TIndex, class TValue>
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
@@ -356,7 +362,7 @@ int solve(TValue* pSolution,
             for (typename Partition<TIndex>::size_type iPartition=0; iPartition<pPartition->size(); ++iPartition) {
                 const auto threadCount = threadCounts[iPartition];
                 if (pPartition->isContiguous()) {
-                    if (contiguousSweep(pSolution,
+                    if (dispatchSweep(pSolution,
                                         buffer.data(),
                                         rMatrix,
                                         pRHS,

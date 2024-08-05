@@ -1,0 +1,88 @@
+# Doxyfile 1.9.6
+
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = MCGS
+PROJECT_NUMBER         =
+PROJECT_BRIEF          =
+PROJECT_LOGO           =
+OUTPUT_DIRECTORY       =
+FULL_PATH_NAMES        = NO
+
+NUM_PROC_THREADS       = 1
+
+EXTRACT_ALL            = YES
+EXTRACT_PACKAGE        = YES
+EXTRACT_STATIC         = YES
+CASE_SENSE_NAMES       = YES
+SHOW_INCLUDE_FILES     = NO
+
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = NO
+
+INPUT                  = ../readme      \
+                         ../include
+FILE_PATTERNS          = *.hpp
+RECURSIVE              = YES
+EXCLUDE                =
+EXCLUDE_PATTERNS       = */impl/*           \
+                         */test/*           \
+                         *test_*            \
+                         *_test*
+EXCLUDE_SYMBOLS        = detail::* \
+                         *::detail*
+USE_MDFILE_AS_MAINPAGE = ../readme
+IMAGE_PATH             =
+INPUT_FILTER           =
+FILTER_PATTERNS        =
+
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+VERBATIM_HEADERS       = NO
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_FILE_EXTENSION    = .html
+HTML_HEADER            =
+HTML_FOOTER            =
+HTML_STYLESHEET        =
+HTML_EXTRA_STYLESHEET  = doxygen-awesome.css
+HTML_EXTRA_FILES       =
+HTML_COLORSTYLE        = AUTO_DARK
+HTML_COLORSTYLE_HUE    = 220
+HTML_COLORSTYLE_SAT    = 100
+HTML_COLORSTYLE_GAMMA  = 80
+HTML_TIMESTAMP         = YES
+GENERATE_TREEVIEW      = YES
+HTML_FORMULA_FORMAT    = svg
+
+USE_MATHJAX            = YES
+MATHJAX_VERSION        = MathJax_3
+MATHJAX_FORMAT         = HTML-CSS
+
+GENERATE_LATEX         = NO
+GENERATE_RTF           = NO
+GENERATE_MAN           = NO
+GENERATE_XML           = NO
+GENERATE_DOCBOOK       = NO
+GENERATE_AUTOGEN_DEF   = NO
+GENERATE_PERLMOD       = NO
+
+TAGFILES               =
+GENERATE_TAGFILE       = mcgs_doxygen_tagfile
+ALLEXTERNALS           = NO
+EXTERNAL_GROUPS        = YES
+EXTERNAL_PAGES         = YES
+
+HIDE_UNDOC_RELATIONS   = NO
+HAVE_DOT               = YES
+DOT_NUM_THREADS        = 0
+UML_LOOK               = YES
+UML_LIMIT_NUM_FIELDS   = 10
+TEMPLATE_RELATIONS     = YES
+INCLUDED_BY_GRAPH      = YES
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
+DIRECTORY_GRAPH        = NO
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
+DOT_MULTI_TARGETS      = YES
