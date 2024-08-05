@@ -156,13 +156,13 @@ void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix
     std::ostream& rStream = *pStream;
     rStream << std::fixed << std::setprecision(12) << std::scientific;
     rStream << "%%MatrixMarket matrix coordinate real general\n";
-    rStream << rMatrix.rowCount << " " << rMatrix.columnCount << " " << rMatrix.nonzeroCount << "\n";
+    rStream << rMatrix.rowCount << " " << rMatrix.columnCount << " " << rMatrix.entryCount << "\n";
     for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
         const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
         for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
             const auto iColumn = rMatrix.pColumnIndices[iEntry];
-            const auto nonzero = rMatrix.pNonzeros[iEntry];
+            const auto nonzero = rMatrix.pEntries[iEntry];
             rStream << iRow + 1 << " " << iColumn + 1 << " " << nonzero << "\n";
         }
     }
@@ -226,10 +226,10 @@ int main(int argc, const char* const * argv)
     > adaptor;
     adaptor.rowCount        = matrix.rowCount;
     adaptor.columnCount     = matrix.columnCount;
-    adaptor.nonzeroCount    = matrix.nonzeroCount;
+    adaptor.entryCount      = matrix.entryCount;
     adaptor.pRowExtents     = matrix.rowExtents.data();
     adaptor.pColumnIndices  = matrix.columnIndices.data();
-    adaptor.pNonzeros       = matrix.nonzeros.data();
+    adaptor.pEntries        = matrix.entries.data();
 
     // ======================
     // --- Coloring ---
@@ -265,7 +265,7 @@ int main(int argc, const char* const * argv)
             for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
                 const mcgs::TestCSRMatrix::Index iColumn = matrix.columnIndices[iEntry];
                 const auto neighborColor = colors[iColumn];
-                if (colorSettings.tolerance <= std::abs(matrix.nonzeros[iEntry]) && iRow != iColumn) {
+                if (colorSettings.tolerance <= std::abs(matrix.entries[iEntry]) && iRow != iColumn) {
                     if (neighborColor == currentColor) {
                         conflicts.emplace(iRow, std::vector<mcgs::TestCSRMatrix::Index> {})
                             .first->second.push_back(iColumn);
@@ -328,8 +328,8 @@ int main(int argc, const char* const * argv)
     mcgs::Partition<mcgs::TestCSRMatrix::Index>* pReorderedPartition = nullptr;
     {
         MCGS_SCOPED_TIMER("reordering");
-        pReorderedPartition = mcgs::reorder(matrix.rowCount, matrix.columnCount, matrix.nonzeroCount,
-                                            matrix.rowExtents.data(), matrix.columnIndices.data(), matrix.nonzeros.data(),
+        pReorderedPartition = mcgs::reorder(matrix.rowCount, matrix.columnCount, matrix.entryCount,
+                                            matrix.rowExtents.data(), matrix.columnIndices.data(), matrix.entries.data(),
                                             vector.data(),
                                             pPartition);
         if (!pReorderedPartition) {
@@ -377,8 +377,8 @@ int main(int argc, const char* const * argv)
 
     {
         MCGS_SCOPED_TIMER("undo reordering");
-        bool success = mcgs::revertReorder(matrix.rowCount, matrix.columnCount, matrix.nonzeroCount,
-                                           matrix.rowExtents.data(), matrix.columnIndices.data(), matrix.nonzeros.data(),
+        bool success = mcgs::revertReorder(matrix.rowCount, matrix.columnCount, matrix.entryCount,
+                                           matrix.rowExtents.data(), matrix.columnIndices.data(), matrix.entries.data(),
                                            vector.data(),
                                            pPartition) == MCGS_SUCCESS;
         success &= mcgs::revertReorder(solution.data(), solution.size(), pPartition) == MCGS_SUCCESS;

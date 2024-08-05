@@ -19,13 +19,13 @@ struct TestCSRMatrix
 
     Index columnCount;
 
-    Index nonzeroCount;
+    Index entryCount;
 
     std::vector<Index> rowExtents;
 
     std::vector<Index> columnIndices;
 
-    std::vector<Value> nonzeros;
+    std::vector<Value> entries;
 }; // struct CSRMatrix
 
 

@@ -94,7 +94,7 @@ std::variant<
         ++iLine;
     }
 
-    long long rows = 0ul, columns = 0ul, nonzeros = 0ul;
+    long long rows = 0ul, columns = 0ul, entries = 0ul;
 
     // Parse number of rows
     rStream >> rows;
@@ -130,17 +130,17 @@ std::variant<
             }, output);
     }
 
-    // Parse number of nonzeros
-    rStream >> nonzeros;
+    // Parse number of entries
+    rStream >> entries;
     if (rStream.fail()) {
-        throw std::runtime_error("Error: failed to parse the number of nonzeros in the input matrix\n");
-    } else if (nonzeros < 0ll) {
-        throw std::runtime_error("Error: negative number of nonzeros in input");
+        throw std::runtime_error("Error: failed to parse the number of entries in the input matrix\n");
+    } else if (entries < 0ll) {
+        throw std::runtime_error("Error: negative number of entries in input");
     } else {
-        std::visit([nonzeros](auto& rVariant){
+        std::visit([entries](auto& rVariant){
                 using Value = std::remove_reference_t<decltype(rVariant)>;
                 if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
-                    rVariant.nonzeroCount = nonzeros;
+                    rVariant.entryCount = entries;
                 }
             }, output);
     }
@@ -152,8 +152,8 @@ std::variant<
             using Value = std::remove_reference_t<decltype(rVariant)>;
             if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
                 rVariant.rowExtents.reserve(rVariant.rowCount + 1);
-                rVariant.columnIndices.reserve(rVariant.nonzeroCount);
-                rVariant.nonzeros.reserve(rVariant.nonzeroCount);
+                rVariant.columnIndices.reserve(rVariant.entryCount);
+                rVariant.entries.reserve(rVariant.entryCount);
             }
         }, output);
 
@@ -198,9 +198,9 @@ bool parseSparseDataLine(std::istream& rStream, TestCSRMatrix& rMatrix)
     --iColumn;
 
     // Record entry in the output matrix
-    for (auto i=rMatrix.rowExtents.size(); i<=iRow; ++i) rMatrix.rowExtents.push_back(rMatrix.nonzeros.size());
+    for (auto i=rMatrix.rowExtents.size(); i<=iRow; ++i) rMatrix.rowExtents.push_back(rMatrix.entries.size());
     rMatrix.columnIndices.push_back(iColumn);
-    rMatrix.nonzeros.push_back(value);
+    rMatrix.entries.push_back(value);
 
     return true;
 }
@@ -233,7 +233,7 @@ std::variant<
         using Type = std::remove_reference_t<decltype(rVariant)>;
         if constexpr (std::is_same_v<Type,TestCSRMatrix>) {
             while (parseSparseDataLine(rStream, rVariant)) {}
-            rVariant.rowExtents.push_back(rVariant.nonzeros.size());
+            rVariant.rowExtents.push_back(rVariant.entries.size());
         } else if constexpr (std::is_same_v<Type,TestDenseVector>) {
             while (parseDenseDataLine(rStream, rVariant)) {}
         }
