@@ -345,7 +345,7 @@ enum struct Parallelization
 {
     None        = 1,    ///< @brief Perform Gauss-Seidel iterations in serial.
     RowWise     = 2,    ///< @brief Distribute work assuming each row has the same number of entries.
-    EntryWise   = 4     ///< @brief Distribute work into equal chunks of entries.
+    EntryWise   = 4     ///< @brief Distribute work along equal chunks of entries.
 };
 
 

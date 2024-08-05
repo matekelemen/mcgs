@@ -11,6 +11,7 @@
 #include <unordered_set> // std::unordered_set
 #include <limits> // std::numeric_limits::max
 #include <chrono> // std::chrono::steady_clock, std::chrono::duration_cast
+#include <algorithm> // std::sort
 
 
 const std::unordered_map<std::string,std::string> defaultArguments {
@@ -151,19 +152,36 @@ private:
 
 
 void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value>& rMatrix,
+           const unsigned* pColors = nullptr,
            std::ostream* pStream = &std::cout)
 {
     std::ostream& rStream = *pStream;
     rStream << std::fixed << std::setprecision(12) << std::scientific;
     rStream << "%%MatrixMarket matrix coordinate real general\n";
     rStream << rMatrix.rowCount << " " << rMatrix.columnCount << " " << rMatrix.entryCount << "\n";
-    for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
-        const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
-        const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
-        for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
-            const auto iColumn = rMatrix.pColumnIndices[iEntry];
-            const auto nonzero = rMatrix.pEntries[iEntry];
-            rStream << iRow + 1 << " " << iColumn + 1 << " " << nonzero << "\n";
+
+    //std::vector<unsigned> reorderedColors(pColors, pColors + rMatrix.rowCount);
+    //std::sort(reorderedColors.begin(), reorderedColors.end());
+
+    if (pColors == nullptr) {
+        for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+            const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
+            const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
+            for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
+                const auto iColumn = rMatrix.pColumnIndices[iEntry];
+                const auto entry = rMatrix.pEntries[iEntry];
+                rStream << iRow + 1 << " " << iColumn + 1 << " " << entry << "\n";
+            }
+        }
+    } else {
+        for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+            const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
+            const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
+            for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
+                const auto iColumn = rMatrix.pColumnIndices[iEntry];
+                //rStream << iRow + 1 << " " << iColumn + 1 << " " << reorderedColors[iRow] + 1 << "\n";
+                rStream << iRow + 1 << " " << iColumn + 1 << " " << pColors[iRow] + 1 << "\n";
+            }
         }
     }
 }
@@ -336,6 +354,11 @@ int main(int argc, const char* const * argv)
             std::cerr << "reordering failed\n";
             return MCGS_FAILURE;
         }
+    }
+
+    {
+        //std::ofstream file("reordered.mm");
+        //print(adaptor, colors.data(), &file);
     }
 
     // Reordered relaxation
