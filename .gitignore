@@ -4,8 +4,8 @@
 !.gitattributes
 !CMakeLists.txt
 !Config.cmake.in
-!license
-!readme
+!license.txt
+!readme.md
 !build.sh
 !mac_build.sh
 

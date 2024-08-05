@@ -22,7 +22,6 @@ buildType="Release"
 buildDir="$scriptDir/build"
 installDir="$scriptDir/install"
 cmakeArguments=""
-cc="gcc"
 cxx="g++"
 jobCount=""
 
@@ -89,7 +88,6 @@ case "$(uname -s)" in
         toolchainBin="${toolchainRoot}/bin"
         toolchainLib="${toolchainRoot}/lib"
         toolchainInclude="${toolchainRoot}/include"
-        export cc="$toolchainBin/clang"
         export cxx="$toolchainBin/clang++"
         ;;
     \?)
