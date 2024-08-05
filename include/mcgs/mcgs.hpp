@@ -420,7 +420,7 @@ struct SolveSettings
 ///          a diagonal matrix @f$d_{ij}@f$ and strictly upper triangular matrix @f$u_{ij}@f$
 ///          (@f$ a_{ij} = l_{ij} + d_{ij} + u_{ij} @f$), this function computes
 ///          @f[
-///             x_j^{k+1} = (1 - \omega)x_j^k + \frac{\omega}{a_{jj}} (b_j - \sum_{i<j}{a_{ji} x_i^{k+1}} - \sum_{i<j}{a_{ji} x_i^k})
+///             x_j^{k+1} = (1 - \omega)x_j^k + \frac{\omega}{a_{jj}} (b_j - \sum_{i<j}{a_{ji} x_i^{k+1}} - \sum_{i>j}{a_{ji} x_i^k})
 ///          @f]
 ///          where @f$\omega@f$ is a user-selected relaxation parameter.
 ///
