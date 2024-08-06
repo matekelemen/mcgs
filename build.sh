@@ -70,25 +70,32 @@ while getopts ":h p t: j: b: i: o:" arg; do
 done
 
 case "$(uname -s)" in
+    Linux*)
+        ;;
     Darwin*)
-        # Set clang from homebrew
-        if ! command -v brew &> /dev/null; then
-            echo "Error: $scriptName requires Homebrew"
-            exit 1
+        if [ -z "$jobCount" ]; then
+            jobCount=$(sysctl -n machdep.cpu.thread_count)
         fi
 
-        if ! brew list llvm >/dev/null 2>&1; then
-            echo "Error: missing dependency: llvm"
-            echo "Consider running 'brew install llvm'"
-            exit 1
-        fi
+        if [ -z "$cxx" ]; then
+            # Set clang from homebrew
+            if ! command -v brew &> /dev/null; then
+                echo "Error: $scriptName requires Homebrew"
+                exit 1
+            fi
 
-        jobCount=$(sysctl -n machdep.cpu.thread_count)
-        toolchainRoot="$(brew --prefix llvm)"
-        toolchainBin="${toolchainRoot}/bin"
-        toolchainLib="${toolchainRoot}/lib"
-        toolchainInclude="${toolchainRoot}/include"
-        export cxx="$toolchainBin/clang++"
+            if ! brew list llvm >/dev/null 2>&1; then
+                echo "Error: missing dependency: llvm"
+                echo "Consider running 'brew install llvm'"
+                exit 1
+            fi
+
+            toolchainRoot="$(brew --prefix llvm)"
+            toolchainBin="${toolchainRoot}/bin"
+            toolchainLib="${toolchainRoot}/lib"
+            toolchainInclude="${toolchainRoot}/include"
+            export cxx="$toolchainBin/clang++"
+        fi
         ;;
     \?)
         echo "Error: unsupported OS $(uname -s)"
