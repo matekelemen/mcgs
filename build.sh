@@ -70,6 +70,7 @@ done
 
 case "$(uname -s)" in
     Linux*)
+        export cxx=g++
         ;;
     Darwin*)
         if [ -z "$jobCount" ]; then
