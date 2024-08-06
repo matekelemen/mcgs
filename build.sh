@@ -22,7 +22,6 @@ buildType="Release"
 buildDir="$scriptDir/build"
 installDir="$scriptDir/install"
 cmakeArguments=""
-cxx="g++"
 jobCount=""
 
 while getopts ":h p t: j: b: i: o:" arg; do
@@ -94,6 +93,7 @@ case "$(uname -s)" in
             toolchainBin="${toolchainRoot}/bin"
             toolchainLib="${toolchainRoot}/lib"
             toolchainInclude="${toolchainRoot}/include"
+            export cc="$toolchainBin/clang"
             export cxx="$toolchainBin/clang++"
         fi
         ;;
