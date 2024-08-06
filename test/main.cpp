@@ -11,12 +11,14 @@
 #include <unordered_set> // std::unordered_set
 #include <limits> // std::numeric_limits::max
 #include <chrono> // std::chrono::steady_clock, std::chrono::duration_cast
-#include <algorithm> // std::sort
+#include <algorithm> // std::fill
+#include <optional> // std::optional
 
 
 const std::unordered_map<std::string,std::string> defaultArguments {
     {"-s", "16"},
-    {"-i", "1e2"}
+    {"-i", "1e2"},
+    {"-o", ""}
 };
 
 
@@ -24,6 +26,7 @@ struct Arguments
 {
     std::filesystem::path matrixPath;
     std::filesystem::path vectorPath;
+    std::optional<std::filesystem::path> outputPath;
     int shrinkingFactor;
     std::size_t maxIterations;
 }; // struct Arguments
@@ -123,6 +126,29 @@ Arguments parseArguments(int argc, char const* const* argv)
         arguments.maxIterations = static_cast<std::size_t>(maxIterations);
     }
 
+    // Convert and validate output path
+    itEnd = nullptr;
+    {
+        const std::string& rOutputPath = argMap["-o"];
+        if (!rOutputPath.empty()) {
+            arguments.outputPath = rOutputPath;
+            const auto status = std::filesystem::status(rOutputPath);
+            switch (status.type()) {
+                case std::filesystem::file_type::not_found: break; // <== ok
+                case std::filesystem::file_type::regular: break; // <== ok
+                case std::filesystem::file_type::directory: throw std::invalid_argument(
+                    "Error: provided output path is a directory: " + arguments.outputPath.value().string() + "\n");
+                default: throw std::invalid_argument(
+                    "Error: output is not a file: " + arguments.outputPath.value().string() + "\n");
+                } // switch status
+
+            if ((status.permissions() & std::filesystem::perms::owner_write) == std::filesystem::perms::none) {
+                throw std::invalid_argument(
+                    "Error: missing write access to output path " + arguments.outputPath.value().string() + "\n");
+            } // if !writePermission
+        }
+    }
+
     return arguments;
 }
 
@@ -152,7 +178,6 @@ private:
 
 
 void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix::Value>& rMatrix,
-           const unsigned* pColors = nullptr,
            std::ostream* pStream = &std::cout)
 {
     std::ostream& rStream = *pStream;
@@ -163,25 +188,13 @@ void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix
     //std::vector<unsigned> reorderedColors(pColors, pColors + rMatrix.rowCount);
     //std::sort(reorderedColors.begin(), reorderedColors.end());
 
-    if (pColors == nullptr) {
-        for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
-            const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
-            const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
-            for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
-                const auto iColumn = rMatrix.pColumnIndices[iEntry];
-                const auto entry = rMatrix.pEntries[iEntry];
-                rStream << iRow + 1 << " " << iColumn + 1 << " " << entry << "\n";
-            }
-        }
-    } else {
-        for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
-            const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
-            const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
-            for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
-                const auto iColumn = rMatrix.pColumnIndices[iEntry];
-                //rStream << iRow + 1 << " " << iColumn + 1 << " " << reorderedColors[iRow] + 1 << "\n";
-                rStream << iRow + 1 << " " << iColumn + 1 << " " << pColors[iRow] + 1 << "\n";
-            }
+    for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+        const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
+        const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
+        for (std::size_t iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
+            const auto iColumn = rMatrix.pColumnIndices[iEntry];
+            const auto entry = rMatrix.pEntries[iEntry];
+            rStream << iRow + 1 << " " << iColumn + 1 << " " << entry << "\n";
         }
     }
 }
@@ -252,7 +265,7 @@ int main(int argc, const char* const * argv)
     // ======================
     // --- Coloring ---
     // ======================
-    std::vector<unsigned> colors(matrix.columnCount, std::numeric_limits<unsigned>::max());
+    std::vector<unsigned> colors(matrix.rowCount, std::numeric_limits<unsigned>::max());
     mcgs::ColorSettings<mcgs::TestCSRMatrix::Value> colorSettings;
 
     {
@@ -311,11 +324,44 @@ int main(int argc, const char* const * argv)
 
     {
         MCGS_SCOPED_TIMER("partitioning");
-        pPartition = mcgs::makePartition(colors.data(), adaptor.columnCount);
+        pPartition = mcgs::makePartition(colors.data(), adaptor.rowCount);
         if (!pPartition) {
             std::cerr << "partitioning failed\n";
             return MCGS_FAILURE;
         }
+    }
+
+    // Write reordered matrix with colors if requested
+    if (arguments.outputPath.has_value()) {
+        auto reorderedMatrix = matrix;
+
+        for (unsigned long iRow=0ul; iRow<reorderedMatrix.rowCount; ++iRow) {
+            const auto iBegin = reorderedMatrix.rowExtents[iRow];
+            const auto iEnd = reorderedMatrix.rowExtents[iRow + 1];
+            std::fill(reorderedMatrix.entries.begin() + iBegin,
+                      reorderedMatrix.entries.begin() + iEnd,
+                      colors[iRow] + 1);
+        }
+
+        std::vector<double> dummy = vector;
+        auto pDummy = mcgs::reorder(reorderedMatrix.rowCount, reorderedMatrix.columnCount, reorderedMatrix.entryCount,
+                                    reorderedMatrix.rowExtents.data(), reorderedMatrix.columnIndices.data(), reorderedMatrix.entries.data(),
+                                    dummy.data(),
+                                    pPartition);
+        mcgs::destroyPartition(pDummy);
+
+        mcgs::CSRAdaptor<
+            mcgs::TestCSRMatrix::Index,
+            mcgs::TestCSRMatrix::Value
+        > reorderedAdaptor;
+        reorderedAdaptor.rowCount        = reorderedMatrix.rowCount;
+        reorderedAdaptor.columnCount     = reorderedMatrix.columnCount;
+        reorderedAdaptor.entryCount      = reorderedMatrix.entryCount;
+        reorderedAdaptor.pRowExtents     = reorderedMatrix.rowExtents.data();
+        reorderedAdaptor.pColumnIndices  = reorderedMatrix.columnIndices.data();
+        reorderedAdaptor.pEntries        = reorderedMatrix.entries.data();
+        std::ofstream file(arguments.outputPath.value());
+        print(reorderedAdaptor, &file);
     }
 
     // ======================
@@ -354,11 +400,6 @@ int main(int argc, const char* const * argv)
             std::cerr << "reordering failed\n";
             return MCGS_FAILURE;
         }
-    }
-
-    {
-        //std::ofstream file("reordered.mm");
-        //print(adaptor, colors.data(), &file);
     }
 
     // Reordered relaxation

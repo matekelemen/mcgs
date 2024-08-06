@@ -28,6 +28,7 @@ jobs:
       matrix:
         sanitizer: [none, address]
         type: [RelWithDebInfo, Release]
+        compiler: [g++, clang++]
     runs-on: ubuntu-latest
     steps:
       - name: Clone repository
@@ -36,6 +37,7 @@ jobs:
           fetch-depth: 0
       - name: Build
         run: |
+          export cxx="/usr/bin/${{ matrix.compiler }}"
           if [ "${{ matrix.sanitizer }}" = "none" ]; then
             ./build.sh -t "${{ matrix.type }}"
           else
@@ -50,7 +52,7 @@ jobs:
           tar -xvzf input.tar.gz
           cd ..
 
-          for shrinkingFactor in 64 128 256; do
+          for shrinkingFactor in 1 8 64 256; do
             for threadCount in 1 2 4; do
               for case in mok_structure mok_fluid; do
                     echo "Running $case on $threadCount threads with $shrinkingFactor shrinking ..."
