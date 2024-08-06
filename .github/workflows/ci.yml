@@ -65,9 +65,9 @@ jobs:
         run: |
           export cxx="$(brew --prefix llvm)/bin/clang++"
           if [ "${{ matrix.sanitizer }}" = "none" ]; then
-            ./build.sh -t "${{ matrix.type }}"
+            zsh build.sh -t "${{ matrix.type }}"
           else
-            ./build.sh -t "${{ matrix.type }}" -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
+            zsh build.sh -t "${{ matrix.type }}" -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
           fi
       - name: Run tests
         run: |
