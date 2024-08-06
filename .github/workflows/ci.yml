@@ -73,7 +73,7 @@ jobs:
         run: |
           git lfs install
           git lfs pull
-          ./test/testrunner.sh
+          zsh test/testrunner.sh
 
   generate-docs:
     runs-on: ubuntu-latest
