@@ -22,14 +22,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  testrunner:
+  ubuntu-latest:
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: true
       matrix:
         sanitizer: [none, address]
         type: [RelWithDebInfo, Release]
         compiler: [g++, clang++]
-    runs-on: ubuntu-latest
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
@@ -47,25 +47,33 @@ jobs:
         run: |
           git lfs install
           git lfs pull
+          ./test/testrunner.sh
 
-          cd test
-          tar -xvzf input.tar.gz
-          cd ..
-
-          for shrinkingFactor in 1 8 64 256; do
-            for threadCount in 1 2 4; do
-              for case in mok_structure mok_fluid; do
-                    echo "Running $case on $threadCount threads with $shrinkingFactor shrinking ..."
-                    export OMP_NUM_THREADS=$threadCount
-                    if ! build/bin/mcgs_testrunner                \
-                            test/${case}.mm test/${case}_rhs.mm   \
-                            -s $shrinkingFactor                   \
-                            -i 1e2
-                      then exit 1
-                    fi
-              done
-            done
-          done
+  macos-latest:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        sanitizer: [none, address]
+        type: [RelWithDebInfo, Release]
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        run: |
+          export cxx="$(brew --prefix llvm)/bin/clang++"
+          if [ "${{ matrix.sanitizer }}" = "none" ]; then
+            ./build.sh -t "${{ matrix.type }}"
+          else
+            ./build.sh -t "${{ matrix.type }}" -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
+          fi
+      - name: Run tests
+        run: |
+          git lfs install
+          git lfs pull
+          ./test/testrunner.sh
 
   generate-docs:
     needs: testrunner

@@ -1,4 +1,4 @@
 *
 
 !.gitignore
-!testrunner.yml
+!ci.yml
