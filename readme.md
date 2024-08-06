@@ -16,14 +16,15 @@ MCGS is a lightweight library for performing parallelized Gauss-Sidel smoothing,
 ## Usage
 
 Typical workflow
-1) construct your linear system $A x = b$
-2) construct and adaptor for $A$ (see [mcgs::CSRAdaptor](structmcgs_1_1CSRAdaptor.html))
-3) compute a coloring of $A$ (see [mcgs::color](namespacemcgs.html#ad660f970843b8c8edea18c6e9291f6e5))
-4) construct a partition of $A$ with respect to the coloring (see [mcgs::makePartition](namespacemcgs.html#adbeb4189f3eadcb713e803cf94aa38cf))
-5) reorder the system with respect to the coloring ([mcgs::reorder](namespacemcgs.html#a036dc0fa0b11d8adb71427d78ac7b7ad))
-6) perform Gauss-Seidel iterations **using the reordered partition** ([mcgs::solve](namespacemcgs.html#ae862fac411e001950f012872f6ac7e0c))
-7) *Optional: restore the original order of your system* ([mcgs::revertReorder](namespacemcgs.html#aa1175b9934a8890204c6be445ea4407e))
-8) deallocate partitions ([destroyPartition](namespacemcgs.html#ad619ded9f67d8a9f379ad7e4b759d854))
+
+- construct your linear system $A x = b$
+- construct and adaptor for $A$ (see [mcgs::CSRAdaptor](structmcgs_1_1CSRAdaptor.html))
+- compute a coloring of $A$ (see [mcgs::color](namespacemcgs.html#ad660f970843b8c8edea18c6e9291f6e5))
+- construct a partition of $A$ with respect to the coloring (see [mcgs::makePartition](namespacemcgs.html#adbeb4189f3eadcb713e803cf94aa38cf))
+- reorder the system with respect to the coloring ([mcgs::reorder](namespacemcgs.html#a036dc0fa0b11d8adb71427d78ac7b7ad))
+- perform Gauss-Seidel iterations **using the reordered partition** ([mcgs::solve](namespacemcgs.html#ae862fac411e001950f012872f6ac7e0c))
+- *optional: restore the original order of your system* ([mcgs::revertReorder](namespacemcgs.html#aa1175b9934a8890204c6be445ea4407e))
+- deallocate partitions ([destroyPartition](namespacemcgs.html#ad619ded9f67d8a9f379ad7e4b759d854))
 
 
 ### C++ Example Snippet
