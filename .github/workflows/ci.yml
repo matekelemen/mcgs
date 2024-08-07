@@ -95,7 +95,11 @@ jobs:
         env:
           USER_NAME: matekelemen
       - name: Generate Docs
-        run: cd docs && doxygen doxyfile && cd ..
+        run: |
+          cd docs
+          python3 prepareDocs.py
+          doxygen doxyfile
+          cd ..
       - name: Generate root index.html
         run: echo "<meta http-equiv=\"refresh\" content=\"0; docs/html/index.html\">" > index.html
       - name: Update Remote

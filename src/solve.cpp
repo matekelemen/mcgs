@@ -363,13 +363,13 @@ int solve(TValue* pSolution,
                 const auto threadCount = threadCounts[iPartition];
                 if (pPartition->isContiguous()) {
                     if (dispatchSweep(pSolution,
-                                        buffer.data(),
-                                        rMatrix,
-                                        pRHS,
-                                        settings,
-                                        *pPartition->begin(iPartition),
-                                        *pPartition->end(iPartition),
-                                        threadCount) != MCGS_SUCCESS) {
+                                      buffer.data(),
+                                      rMatrix,
+                                      pRHS,
+                                      settings,
+                                      *pPartition->begin(iPartition),
+                                      *pPartition->end(iPartition),
+                                      threadCount) != MCGS_SUCCESS) {
                         if (1 <= settings.verbosity) {
                             std::cerr << "mcgs: error: parallel Gauss-Seidel failed at iteration "
                                       << iIteration

@@ -19,7 +19,7 @@ SHOW_INCLUDE_FILES     = NO
 ENABLE_PREPROCESSING   = YES
 MACRO_EXPANSION        = NO
 
-INPUT                  = ../readme.md      \
+INPUT                  = readme.md      	\
                          ../include
 FILE_PATTERNS          = *.hpp
 RECURSIVE              = YES
@@ -30,7 +30,7 @@ EXCLUDE_PATTERNS       = */impl/*           \
                          *_test*
 EXCLUDE_SYMBOLS        = detail::* \
                          *::detail*
-USE_MDFILE_AS_MAINPAGE = ../readme.md
+USE_MDFILE_AS_MAINPAGE = readme.md
 IMAGE_PATH             =
 INPUT_FILTER           =
 FILTER_PATTERNS        =
