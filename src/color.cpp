@@ -51,8 +51,7 @@ using NeighborSet = std::vector<TIndex>;
 /// @brief Collect all edges of an undirected graph.
 template <class TIndex, class TValue>
 std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue>& rMatrix,
-                                                  const ColorSettings<TValue> settings,
-                                                  [[maybe_unused]] MCGS_MUTEX_ARRAY& rMutexes)
+                                                  const ColorSettings<TValue> settings)
 {
     std::vector<NeighborSet<TIndex>> neighbors(rMatrix.columnCount);
 
@@ -62,27 +61,17 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
     for (int iRow=0; iRow<static_cast<int>(rMatrix.rowCount); ++iRow) {
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
         const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
+        neighbors[iRow].reserve(iRowEnd - iRowBegin);
 
         for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
             const TValue value = rMatrix.pEntries[iEntry];
             if (settings.tolerance <= std::abs(value) && static_cast<TIndex>(iRow) != iColumn) {
                 {
-                    MCGS_ACQUIRE_MUTEX(rMutexes[iRow]);
                     const auto [itBegin, itEnd] = std::equal_range(neighbors[iRow].begin(),
                                                                    neighbors[iRow].end(),
                                                                    iColumn);
                     if (itBegin == itEnd) neighbors[iRow].insert(itBegin, iColumn);
-                    MCGS_RELEASE_MUTEX(rMutexes[iRow]);
-                }
-
-                {
-                    MCGS_ACQUIRE_MUTEX(rMutexes[iColumn]);
-                    const auto [itBegin, itEnd] = std::equal_range(neighbors[iColumn].begin(),
-                                                                   neighbors[iColumn].end(),
-                                                                   iRow);
-                    if (itBegin == itEnd) neighbors[iColumn].insert(itBegin, iRow);
-                    MCGS_RELEASE_MUTEX(rMutexes[iColumn]);
                 }
             }
         } // for iEntry in range(iRowBegin, iRowEnd)
@@ -219,12 +208,9 @@ int color(TColor* pColors,
         return MCGS_FAILURE;
     }
 
-    MCGS_MUTEX_ARRAY mutexes(rMatrix.rowCount);
-    for ([[maybe_unused]] MCGS_MUTEX& rMutex : mutexes) MCGS_INITIALIZE_MUTEX(rMutex);
-
     // Collect all edges of the graph
     // (symmetric version of the input matrix)
-    const auto neighbors = collectNeighbors(rMatrix, settings, mutexes);
+    const auto neighbors = collectNeighbors(rMatrix, settings);
 
     // Find the minimum and maximum vertex degrees.
     TIndex minDegree = std::numeric_limits<TIndex>::max();
@@ -285,6 +271,9 @@ int color(TColor* pColors,
     // Keep coloring until all vertices are colored.
     std::size_t iterationCount = 0ul;
     int stallCounter = 0;
+
+    MCGS_MUTEX_ARRAY mutexes(rMatrix.rowCount);
+    for ([[maybe_unused]] MCGS_MUTEX& rMutex : mutexes) MCGS_INITIALIZE_MUTEX(rMutex);
 
     while (!uncolored.empty()) {
         const TIndex uncoloredCount = uncolored.size();
