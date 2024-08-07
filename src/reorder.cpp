@@ -117,7 +117,7 @@ int revertReorder(TValue* pRHS,
         }
     }
 
-    if (iNewRow != columnCount) {
+    if (iNewRow != static_cast<TIndex>(columnCount)) {
         return MCGS_FAILURE;
     }
 

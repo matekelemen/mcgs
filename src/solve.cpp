@@ -58,7 +58,7 @@ int sweep(TValue* pSolution,
           const unsigned long iRowEnd,
           const SolveSettings<TIndex,TValue> settings)
 {
-    for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
+    for (TIndex iRow=iRowBegin; iRow<static_cast<TIndex>(iRowEnd); ++iRow) {
         TValue value = pRHS[iRow];
         TValue diagonal = 1;
 
@@ -106,7 +106,7 @@ int rowWiseSweep(TValue* pSolution,
             const TValue nonzero = rMatrix.pEntries[iEntry];
 
             if (iColumn < static_cast<TIndex>(iRow)) value -= nonzero * pSolution[iColumn];
-            else if (iRow < iColumn) value -= nonzero * pSolutionBuffer[iColumn];
+            else if (static_cast<TIndex>(iRow) < iColumn) value -= nonzero * pSolutionBuffer[iColumn];
             else diagonal = nonzero;
         } /*for iEntry in range(iEntryBegin, iEntryEnd)*/
 

@@ -66,7 +66,7 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
         for (TIndex iEntry=iRowBegin; iEntry<iRowEnd; ++iEntry) {
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
             const TValue value = rMatrix.pEntries[iEntry];
-            if (settings.tolerance <= std::abs(value) && iRow != iColumn) {
+            if (settings.tolerance <= std::abs(value) && static_cast<TIndex>(iRow) != iColumn) {
                 {
                     MCGS_ACQUIRE_MUTEX(rMutexes[iRow]);
                     const auto [itBegin, itEnd] = std::equal_range(neighbors[iRow].begin(),
@@ -233,7 +233,7 @@ int color(TColor* pColors,
     #if defined(MCGS_OPENMP) && 201107 <= _OPENMP
     #pragma omp parallel for reduction(min: minDegree) reduction(max: maxDegree)
     #endif
-    for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+    for (int iRow=0; iRow<static_cast<int>(rMatrix.rowCount); ++iRow) {
         const TIndex degree = static_cast<TIndex>(neighbors[iRow].size());
         minDegree = std::min(minDegree, degree);
         maxDegree = std::max(maxDegree, degree);

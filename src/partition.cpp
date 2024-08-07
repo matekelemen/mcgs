@@ -87,7 +87,7 @@ void destroyPartition(Partition<TIndex>* pPartition)
     template MCGS_EXPORT_SYMBOL Partition<TIndex>* makePartition<TIndex,TColor>(const TColor*, const TIndex);
 
 #define MCGS_INSTANTIATE_PARTITION(TIndex)                                          \
-    template MCGS_EXPORT_SYMBOL class Partition<TIndex>;                            \
+    template class Partition<TIndex>;                                               \
     MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, unsigned)                            \
     MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, unsigned long)                       \
     template MCGS_EXPORT_SYMBOL void destroyPartition<TIndex>(Partition<TIndex>*)   \

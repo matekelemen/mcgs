@@ -13,6 +13,7 @@
 #include <chrono> // std::chrono::steady_clock, std::chrono::duration_cast
 #include <algorithm> // std::fill
 #include <optional> // std::optional
+#include <cstring> // std::strlen
 
 
 const std::unordered_map<std::string,std::string> defaultArguments {
