@@ -101,7 +101,7 @@ jobs:
         run: |
           git lfs install
           git lfs pull
-          bash test/testrunner.sh
+          bash test/testrunner.sh "${{ matrix.type }}/"
         shell: bash
 
   generate-docs:
