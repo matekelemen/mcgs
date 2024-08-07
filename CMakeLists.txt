@@ -77,9 +77,14 @@ set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/readme.md")
 set(CPACK_GENERATOR "ZIP")
 set(CPACK_SOURCE_GENERATOR "ZIP")
 set(CPACK_SOURCE_IGNORE_FILES
-    /.git
-    /build
-    /.gitignore)
+    "/\.git"
+    "/build"
+    "/install"
+    "/\.gitignore"
+    "/\.cache"
+    ".*\.mm"
+    ".*\.mtx"
+    ".*\.png")
 include(CPack)
 
 # Generate CMake config
