@@ -1,5 +1,8 @@
 #pragma once
 
+// --- Internal Includes ---
+#include "defineMacros.hpp"
+
 // --- STL Includes ---
 #include <vector> // std::vector
 #include <cstddef> // std::size_t, std::ptrdiff_t
@@ -10,7 +13,7 @@ namespace mcgs {
 
 
 template <class TIndex>
-class Partition
+class MCGS_EXPORT_SYMBOL Partition
 {
 private:
     bool _isContiguous;

@@ -7,7 +7,7 @@
 !license.txt
 !readme.md
 !build.sh
-!mac_build.sh
+!build.bat
 
 !include
 !include/mcgs

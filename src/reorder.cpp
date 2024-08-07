@@ -1,6 +1,9 @@
+#define MCGS_INTERNAL
+
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::reorder, mcgs::CSRAdaptor
 #include "partition.hpp" // mcgs::Partition
+#include "defineMacros.hpp" // MCGS_EXPORT_SYMBOL
 
 // --- STL Includes ---
 #include <vector> // std::vector
@@ -12,7 +15,8 @@ namespace mcgs {
 
 
 template <class TIndex, class TValue>
-Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
+MCGS_EXPORT_SYMBOL
+Partition<TIndex>* reorder(const unsigned long rowCount, const unsigned long columnCount, const unsigned long nonzeroCount,
                            TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
                            TValue* pRHS,
                            const Partition<TIndex>* pPartition)
@@ -61,7 +65,7 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
             #ifdef MCGS_OPENMP
             #pragma omp for
             #endif
-            for (std::remove_const_t<decltype(partitionSize)> iLocal=0; iLocal<partitionSize; ++iLocal) {
+            for (int iLocal=0; iLocal<static_cast<int>(partitionSize); ++iLocal) {
                 const TIndex iOldRow = itPartitionBegin[iLocal];
                 const TIndex iNewRow = newPartitionExtents[iPartition] + iLocal;
                 columnMap[iOldRow] = iNewRow;
@@ -99,8 +103,9 @@ Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, cons
 
 
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 int revertReorder(TValue* pRHS,
-                  const TIndex columnCount,
+                  const unsigned long columnCount,
                   const Partition<TIndex>* pPartition)
 {
     std::vector<TValue> swap(columnCount);
@@ -122,19 +127,20 @@ int revertReorder(TValue* pRHS,
 
 
 template <class TIndex, class TValue>
-int revertReorder(const TIndex rowCount, const TIndex columnCount, const TIndex nonzeroCount,
+MCGS_EXPORT_SYMBOL
+int revertReorder(const unsigned long rowCount, const unsigned long columnCount, const unsigned long nonzeroCount,
                   TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pNonzeros,
                   TValue* pRHS,
                   const Partition<TIndex>* pPartition)
 {
     // Construct inverse partition
-    std::vector<TIndex> partitionExtents {static_cast<TIndex>(0), rowCount}, rowIndices(rowCount);
+    std::vector<TIndex> partitionExtents {static_cast<TIndex>(0), static_cast<TIndex>(rowCount)}, rowIndices(rowCount);
     const TIndex* itPartitionBegin = pPartition->begin(0);
 
     #ifdef MCGS_OPENMP
     #pragma omp parallel for
     #endif
-    for (TIndex iRow=0; iRow<rowCount; ++iRow) {
+    for (int iRow=0; iRow<static_cast<int>(rowCount); ++iRow) {
         rowIndices[itPartitionBegin[iRow]] = iRow;
     } // for iRow in range(rowCount)
 
@@ -156,25 +162,27 @@ int revertReorder(const TIndex rowCount, const TIndex columnCount, const TIndex 
 }
 
 
-#define MCGS_INSTANTIATE_REORDER(TIndex, TValue)                                                    \
-    template Partition<TIndex>* reorder<TIndex,TValue>(const TIndex, const TIndex, const TIndex,    \
-                                        TIndex*, TIndex*, TValue*,                                  \
-                                        TValue*,                                                    \
-                                        const Partition<TIndex>*);                                  \
-    template int revertReorder<TIndex,TValue>(TValue*,                                              \
-                                              const TIndex,                                         \
-                                              const Partition<TIndex>*);                            \
-    template int revertReorder<TIndex,TValue>(const TIndex, const TIndex, const TIndex,             \
-                                              TIndex*, TIndex*, TValue*,                            \
-                                              TValue*,                                              \
+#define MCGS_INSTANTIATE_REORDER(TIndex, TValue)                                                                        \
+    template MCGS_EXPORT_SYMBOL Partition<TIndex>* reorder<TIndex,TValue>(const unsigned long, const unsigned long, const unsigned long,   \
+                                                       TIndex*, TIndex*, TValue*,                                       \
+                                                       TValue*,                                                         \
+                                                       const Partition<TIndex>*);                                       \
+    template MCGS_EXPORT_SYMBOL int revertReorder<TIndex,TValue>(TValue*,                                                                  \
+                                              const unsigned long,                                                      \
+                                              const Partition<TIndex>*);                                                \
+    template MCGS_EXPORT_SYMBOL int revertReorder<TIndex,TValue>(const unsigned long, const unsigned long, const unsigned long,            \
+                                              TIndex*, TIndex*, TValue*,                                                \
+                                              TValue*,                                                                  \
                                               const Partition<TIndex>*)
 
 MCGS_INSTANTIATE_REORDER(int, double);
 MCGS_INSTANTIATE_REORDER(long, double);
 MCGS_INSTANTIATE_REORDER(unsigned, double);
-MCGS_INSTANTIATE_REORDER(std::size_t, double);
+MCGS_INSTANTIATE_REORDER(unsigned long, double);
 
 #undef MCGS_INSTANTIATE_REORDER
+#undef MCGS_INTERNAL
+#include "undefineMacros.hpp"
 
 
 } // namespace mcgs

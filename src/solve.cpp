@@ -1,3 +1,5 @@
+#define MCGS_INTERNAL
+
 // --- External Includes ---
 #ifdef MCGS_OPENMP
 #include <omp.h> // omp_get_num_threads
@@ -6,6 +8,7 @@
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::solve, mcgs::CSRAdaptor
 #include "partition.hpp" // mcgs::Partition
+#include "defineMacros.hpp" // MCGS_EXPORT_SYMBOL
 
 // --- STL Includes ---
 #include <cstddef> // std::size_t
@@ -19,6 +22,7 @@ namespace mcgs {
 
 
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
                 const TValue* pSolution,
                 const TValue* pRHS) noexcept
@@ -28,7 +32,7 @@ TValue residual(const CSRAdaptor<TIndex,TValue>& rMatrix,
     #ifdef MCGS_OPENMP
     #pragma omp parallel for reduction(+: residual)
     #endif
-    for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+    for (int iRow=0; iRow<static_cast<int>(rMatrix.rowCount); ++iRow) {
         TValue residualComponent = pRHS[iRow];
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
         const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
@@ -50,8 +54,8 @@ template <class TIndex, class TValue>
 int sweep(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
-          const TIndex iRowBegin,
-          const TIndex iRowEnd,
+          const unsigned long iRowBegin,
+          const unsigned long iRowEnd,
           const SolveSettings<TIndex,TValue> settings)
 {
     for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
@@ -90,7 +94,7 @@ int rowWiseSweep(TValue* pSolution,
     #ifdef MCGS_OPENMP
     #pragma omp parallel for num_threads(threadCount)
     #endif
-    for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
+    for (int iRow=iRowBegin; iRow<static_cast<int>(iRowEnd); ++iRow) {
         TValue value = pRHS[iRow];
         TValue diagonal = 1;
 
@@ -101,7 +105,7 @@ int rowWiseSweep(TValue* pSolution,
             const TIndex iColumn = rMatrix.pColumnIndices[iEntry];
             const TValue nonzero = rMatrix.pEntries[iEntry];
 
-            if (iColumn < iRow) value -= nonzero * pSolution[iColumn];
+            if (iColumn < static_cast<TIndex>(iRow)) value -= nonzero * pSolution[iColumn];
             else if (iRow < iColumn) value -= nonzero * pSolutionBuffer[iColumn];
             else diagonal = nonzero;
         } /*for iEntry in range(iEntryBegin, iEntryEnd)*/
@@ -200,7 +204,7 @@ int entrywiseSweep(TValue* pSolution,
     #ifdef MCGS_OPENMP
     #pragma omp parallel for num_threads(threadCount)
     #endif
-    for (TIndex iRow=iRowBegin; iRow<iRowEnd; ++iRow) {
+    for (int iRow=iRowBegin; iRow<static_cast<int>(iRowEnd); ++iRow) {
         const TIndex iLocalRow = iRow - iRowBegin;
         pSolution[iRow] += settings.relaxation * (updates[iLocalRow] / diagonals[iLocalRow] - pSolution[iRow]);
     }
@@ -260,6 +264,7 @@ int dispatchSweep(TValue* pSolution,
 
 /// @brief Perform Gauss-Seidel iterations in serial.
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
@@ -299,6 +304,7 @@ int solve(TValue* pSolution,
 
 /// @brief Perform Gauss-Seidel iterations in parallel.
 template <class TIndex, class TValue>
+MCGS_EXPORT_SYMBOL
 int solve(TValue* pSolution,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const TValue* pRHS,
@@ -400,26 +406,29 @@ int solve(TValue* pSolution,
 }
 
 
-#define MCGS_INSTANTIATE_SOLVE(TIndex, TValue)                              \
-    template TValue residual(const CSRAdaptor<TIndex,TValue>&,              \
-                             const TValue*,                                 \
-                             const TValue*) noexcept;                       \
-    template int solve<TIndex,TValue>(TValue*,                              \
-                                      const CSRAdaptor<TIndex,TValue>&,     \
-                                      const TValue*,                        \
-                                      const SolveSettings<TIndex,TValue>);  \
-    template int solve<TIndex,TValue>(TValue*,                              \
-                                      const CSRAdaptor<TIndex,TValue>&,     \
-                                      const TValue*,                        \
-                                      const Partition<TIndex>*,             \
-                                      const SolveSettings<TIndex,TValue>);
+
+#define MCGS_INSTANTIATE_SOLVE(TIndex, TValue)                                                 \
+    template MCGS_EXPORT_SYMBOL TValue residual(const CSRAdaptor<TIndex,TValue>&,              \
+                                                const TValue*,                                 \
+                                                const TValue*) noexcept;                       \
+    template MCGS_EXPORT_SYMBOL int solve<TIndex,TValue>(TValue*,                              \
+                                                         const CSRAdaptor<TIndex,TValue>&,     \
+                                                         const TValue*,                        \
+                                                         const SolveSettings<TIndex,TValue>);  \
+    template MCGS_EXPORT_SYMBOL int solve<TIndex,TValue>(TValue*,                              \
+                                                         const CSRAdaptor<TIndex,TValue>&,     \
+                                                         const TValue*,                        \
+                                                         const Partition<TIndex>*,             \
+                                                         const SolveSettings<TIndex,TValue>);
 
 MCGS_INSTANTIATE_SOLVE(int, double);
 MCGS_INSTANTIATE_SOLVE(long, double);
 MCGS_INSTANTIATE_SOLVE(unsigned, double);
-MCGS_INSTANTIATE_SOLVE(std::size_t, double);
+MCGS_INSTANTIATE_SOLVE(unsigned long, double);
 
 #undef MCGS_INSTANTIATE_SOLVE
+#undef MCGS_INTERNAL
+#include "undefineMacros.hpp"
 
 
 } // namespace mcgs

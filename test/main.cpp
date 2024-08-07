@@ -80,8 +80,8 @@ Arguments parseArguments(int argc, char const* const* argv)
         throw std::invalid_argument("Error: missing input vector\n");
     }
     using PathString = std::filesystem::path::string_type;
-    arguments.matrixPath = PathString(argv[1]);
-    arguments.vectorPath = PathString(argv[2]);
+    arguments.matrixPath = PathString(argv[1], argv[1] + std::strlen(argv[1]));
+    arguments.vectorPath = PathString(argv[2], argv[2] + std::strlen(argv[2]));
 
     // Validate input path
     for (const auto& rPath : {arguments.matrixPath, arguments.vectorPath}) {

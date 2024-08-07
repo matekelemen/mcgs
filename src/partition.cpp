@@ -1,6 +1,9 @@
+#define MCGS_INTERNAL
+
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::partition
 #include "partition.hpp" // mcgs::Partition
+#include "defineMacros.hpp" // MCGS_EXPORT_SYMBOL
 
 // --- STL Includes ---
 #include <cstddef> // std::size_t
@@ -64,6 +67,7 @@ Partition<TIndex>::Partition(std::vector<TIndex>&& rPartitionExtents,
 
 
 template <class TIndex, class TColor>
+MCGS_EXPORT_SYMBOL
 [[nodiscard]] Partition<TIndex>* makePartition(const TColor* pColors,
                                                const TIndex rowCount)
 {
@@ -72,6 +76,7 @@ template <class TIndex, class TColor>
 
 
 template <class TIndex>
+MCGS_EXPORT_SYMBOL
 void destroyPartition(Partition<TIndex>* pPartition)
 {
     delete pPartition;
@@ -79,21 +84,23 @@ void destroyPartition(Partition<TIndex>* pPartition)
 
 
 #define MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, TColor)                                  \
-    template Partition<TIndex>* makePartition<TIndex,TColor>(const TColor*, const TIndex);
+    template MCGS_EXPORT_SYMBOL Partition<TIndex>* makePartition<TIndex,TColor>(const TColor*, const TIndex);
 
-#define MCGS_INSTANTIATE_PARTITION(TIndex)                      \
-    MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, unsigned)        \
-    MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, std::size_t)     \
-    template void destroyPartition<TIndex>(Partition<TIndex>*); \
-    template class Partition<TIndex>
+#define MCGS_INSTANTIATE_PARTITION(TIndex)                                          \
+    template MCGS_EXPORT_SYMBOL class Partition<TIndex>;                            \
+    MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, unsigned)                            \
+    MCGS_INSTANTIATE_PARTITION_FACTORY(TIndex, unsigned long)                       \
+    template MCGS_EXPORT_SYMBOL void destroyPartition<TIndex>(Partition<TIndex>*)   \
 
 MCGS_INSTANTIATE_PARTITION(int);
 MCGS_INSTANTIATE_PARTITION(long);
 MCGS_INSTANTIATE_PARTITION(unsigned);
-MCGS_INSTANTIATE_PARTITION(std::size_t);
+MCGS_INSTANTIATE_PARTITION(unsigned long);
 
 #undef MCGS_INSTANTIATE_PARTITION_FACTORY
 #undef MCGS_INSTANTIATE_PARTITION
+#undef MCGS_INTERNAL
+#include "undefineMacros.hpp"
 
 
 } // namespace mcgs

@@ -1,9 +1,16 @@
 #pragma once
 
-
 /// @def MCGS_EXPORT_SYMBOL
 /// @brief Exposes the symbol in the shared object.
-#define MCGS_EXPORT_SYMBOL __attribute__((visibility ("default")))
+#if _WIN32
+    #ifdef MCGS_INTERNAL
+        #define MCGS_EXPORT_SYMBOL __declspec(dllexport)
+    #else
+        #define MCGS_EXPORT_SYMBOL __declspec(dllimport)
+    #endif
+#else
+    #define MCGS_EXPORT_SYMBOL __attribute__((visibility ("default")))
+#endif
 
 
 namespace mcgs {
@@ -21,7 +28,7 @@ namespace mcgs {
 
 /// @brief Adaptor for matrices stored in the compressed sparse row format.
 ///
-/// @tparam TIndex Integer type of stored indices (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries (for now, only @p double is supported).
 ///
 /// @details This class is a hollow adaptor that does not own any of the arrays associated
@@ -32,18 +39,18 @@ namespace mcgs {
 template <class TIndex, class TValue>
 struct CSRAdaptor
 {
-    TIndex rowCount;                ///< @brief Number of rows in the matrix.
-    TIndex columnCount;             ///< @brief Number of columns in the matrix.
-    TIndex entryCount;              ///< @brief Number of stored entries in the matrix.
+    unsigned long rowCount;         ///< @brief Number of rows in the matrix.
+    unsigned long columnCount;      ///< @brief Number of columns in the matrix.
+    unsigned long entryCount;       ///< @brief Number of stored entries in the matrix.
     const TIndex* pRowExtents;      ///< @brief Index array defining entries related to each row within the @ref CSRAdaptor::pEntries "array of entries". Size at least @ref rowCount + 1.
     const TIndex* pColumnIndices;   ///< @brief Index array assigning column indices to each entry in the @ref CSRAdaptor::pEntries "array of entries". Size at least @ref entryCount.
     const TValue* pEntries;         ///< @brief Array of stored entries. Size at least @ref entryCount.
 
     /// @brief Default constructor creating an invalid object that must be initialized by the user.
     CSRAdaptor() noexcept
-        : rowCount(TIndex(0)),
-          columnCount(TIndex(0)),
-          entryCount(TIndex(0)),
+        : rowCount(0ul),
+          columnCount(0ul),
+          entryCount(0ul),
           pRowExtents(nullptr),
           pColumnIndices(nullptr),
           pEntries(nullptr)
@@ -115,9 +122,9 @@ struct ColorSettings
 
 /// @brief Compute an approximate coloring of a graph.
 ///
-/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries in the matrix (for now, only @p double is supported).
-/// @tparam TColor Integer type of vertex colors (@p unsigned or @p std::size_t).
+/// @tparam TColor Integer type of vertex colors (@p unsigned or <c>unsigned long</c>).
 ///
 /// @details @par Output
 ///          The output is written to @p pColors, which stores the color of each row at the matching index.
@@ -191,8 +198,8 @@ class Partition;
 
 /// @brief Construct the @ref Partition of a graph with respect to a coloring.
 ///
-/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or @p std::size_t).
-/// @tparam TColor Integer type of vertex colors (@p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or <c>unsigned long</c>).
+/// @tparam TColor Integer type of vertex colors (@p unsigned or <c>unsigned long</c>).
 ///
 /// @param pColors Array of vertex colors.
 /// @param rowCount Number of vertices (must match the number of rows of the matrix representation of the graph).
@@ -213,7 +220,7 @@ MCGS_EXPORT_SYMBOL
 
 /// @brief Destroy a partition that was successfully constructed by @ref makePartition.
 ///
-/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 ///
 /// @param pPartition Pointer to the @ref Partition to destroy.
 ///
@@ -229,7 +236,7 @@ void destroyPartition(Partition<TIndex>* pPartition);
 
 /// @brief Reorder rows and columns of a CSR matrix as well as a matching dense vector, with respect to a coloring.
 ///
-/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries in the matrix (for now, only @p double is supported).
 ///
 /// @details This function reorders the rows of a matrix stored in the compressed sparse row format such that
@@ -263,7 +270,7 @@ void destroyPartition(Partition<TIndex>* pPartition);
 /// @see revertReorder(const TIndex,const TIndex,const TIndex,TIndex*,TIndex*,TValue*,TValue*,const Partition*)
 template <class TIndex, class TValue>
 MCGS_EXPORT_SYMBOL
-[[nodiscard]] Partition<TIndex>* reorder(const TIndex rowCount, const TIndex columnCount, const TIndex entryCount,
+[[nodiscard]] Partition<TIndex>* reorder(const unsigned long rowCount, const unsigned long columnCount, const unsigned long entryCount,
                                          TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pEntries,
                                          TValue* pRHS,
                                          const Partition<TIndex>* pPartition);
@@ -271,7 +278,7 @@ MCGS_EXPORT_SYMBOL
 
 /// @brief Restore the original order of a @ref reorder "reordered" vector.
 ///
-/// @tparam TIndex Integer type of the partition (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of the partition (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries in the vector (for now, only @p double is supported).
 ///
 /// @param pRHS Dense vector to be reordered.
@@ -284,13 +291,13 @@ MCGS_EXPORT_SYMBOL
 template <class TIndex, class TValue>
 MCGS_EXPORT_SYMBOL
 int revertReorder(TValue* pRHS,
-                  const TIndex rowCount,
+                  const unsigned long rowCount,
                   const Partition<TIndex>* pPartition);
 
 
 /// @brief Restore the original order of a @ref reorder "reordered" CSR matrix and associated right hand side vector.
 ///
-/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries in the matrix (for now, only @p double is supported).
 ///
 /// @param rowCount Number of rows in the matrix.
@@ -309,7 +316,7 @@ int revertReorder(TValue* pRHS,
 /// @fn revertReorder(const TIndex,const TIndex,const TIndex,TIndex*,TIndex*,TValue*,TValue*,const Partition*)
 template <class TIndex, class TValue>
 MCGS_EXPORT_SYMBOL
-int revertReorder(const TIndex rowCount, const TIndex columnCount, const TIndex entryCount,
+int revertReorder(const unsigned long rowCount, const unsigned long columnCount, const unsigned long entryCount,
                   TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pEntries,
                   TValue* pRHS,
                   const Partition<TIndex>* pPartition);
@@ -317,7 +324,7 @@ int revertReorder(const TIndex rowCount, const TIndex columnCount, const TIndex 
 
 /// @brief Compute the 2-norm of the residual of a linear system's approximate solution.
 ///
-/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries in the matrix (for now, only @p double is supported).
 ///
 /// @details @f[ r = \sqrt{\sum_i{(b_i - a_{ij}x_j)^2}} @f]
@@ -347,7 +354,7 @@ enum struct Parallelization
 
 /// @brief Settings for Gauss-Seidel relaxation.
 ///
-/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries in the matrix (for now, only @p double is supported).
 template <class TIndex, class TValue>
 struct SolveSettings
@@ -407,7 +414,7 @@ struct SolveSettings
 
 /// @brief Perform Gauss-Seidel relaxation in serial.
 ///
-/// @tparam TIndex Integer type of stored indices (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries (for now, only @p double is supported).
 ///
 /// @details @par Algorithm
@@ -439,7 +446,7 @@ int solve(TValue* pSolution,
 
 /// @brief Perform Gauss-Seidel relaxation on a reordered system in parallel.
 ///
-/// @tparam TIndex Integer type of stored indices (@p int, @p long, @p unsigned or @p std::size_t).
+/// @tparam TIndex Integer type of stored indices (@p int, @p long, @p unsigned or <c>unsigned long</c>).
 /// @tparam TValue Number type of stored entries (for now, only @p double is supported).
 ///
 /// @details @par Algorithm
@@ -476,6 +483,18 @@ int solve(TValue* pSolution,
           const TValue* pRHS,
           const Partition<TIndex>* pPartition,
           const SolveSettings<TIndex,TValue> settings);
+
+
+#define MCGS_INSTANTIATE_COLOR(I,V,C)   \
+    extern template MCGS_EXPORT_SYMBOL int color<I,V,C>(C*,const CSRAdaptor<I,V>&,const ColorSettings<V>);
+
+
+MCGS_INSTANTIATE_COLOR(int, double, unsigned);
+MCGS_INSTANTIATE_COLOR(long, double, unsigned);
+MCGS_INSTANTIATE_COLOR(unsigned, double, unsigned);
+MCGS_INSTANTIATE_COLOR(unsigned long, double, unsigned);
+
+#undef MCGS_INSTANTIATE_COLOR
 
 
 } // namespace mcgs

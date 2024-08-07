@@ -1,6 +1,9 @@
+#define MCGS_INTERNAL
+
 // --- Internal Includes ---
 #include "mcgs/mcgs.hpp" // mcgs::color
-#include "multithreading.hpp"
+#include "multithreading.hpp" // MCGS_MUTEX_ARRAY
+#include "defineMacros.hpp" // MCGS_EXPORT_SYMBOL
 
 // --- STL Includes ---
 #include <vector> // std::vector
@@ -56,7 +59,7 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
     #ifdef MCGS_OPENMP
     #pragma omp parallel for
     #endif
-    for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
+    for (int iRow=0; iRow<static_cast<int>(rMatrix.rowCount); ++iRow) {
         const TIndex iRowBegin = rMatrix.pRowExtents[iRow];
         const TIndex iRowEnd = rMatrix.pRowExtents[iRow + 1];
 
@@ -169,6 +172,7 @@ void removeFromPalette(const TColor color,
 
 
 template <class TIndex, class TValue, class TColor>
+MCGS_EXPORT_SYMBOL
 int color(TColor* pColors,
           const CSRAdaptor<TIndex,TValue>& rMatrix,
           const ColorSettings<TValue> settings)
@@ -226,7 +230,7 @@ int color(TColor* pColors,
     TIndex minDegree = std::numeric_limits<TIndex>::max();
     TIndex maxDegree = 0;
 
-    #ifdef MCGS_OPENMP
+    #if defined(MCGS_OPENMP) && 201107 <= _OPENMP
     #pragma omp parallel for reduction(min: minDegree) reduction(max: maxDegree)
     #endif
     for (TIndex iRow=0; iRow<rMatrix.rowCount; ++iRow) {
@@ -261,7 +265,7 @@ int color(TColor* pColors,
     #ifdef MCGS_OPENMP
     #pragma omp parallel for
     #endif
-    for (TIndex iVertex=0; iVertex<rMatrix.columnCount; ++iVertex) {
+    for (int iVertex=0; iVertex<static_cast<int>(rMatrix.columnCount); ++iVertex) {
         palettes[iVertex].palette.resize(initialPaletteSize);
         std::iota(palettes[iVertex].palette.begin(), palettes[iVertex].palette.end(), TColor(0));
         palettes[iVertex].maxColor = palettes[iVertex].palette.back();
@@ -338,7 +342,7 @@ int color(TColor* pColors,
             #ifdef MCGS_OPENMP
             #pragma omp for
             #endif
-            for (TIndex iVisit=0; iVisit<uncoloredCount; ++iVisit) {
+            for (int iVisit=0; iVisit<static_cast<int>(uncoloredCount); ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
                 const bool colored = isColored(iVertex, neighbors.data(), pColors, coloredMask);
 
@@ -364,7 +368,7 @@ int color(TColor* pColors,
             #ifdef MCGS_OPENMP
             #pragma omp for
             #endif
-            for (TIndex iVisit=0; iVisit<uncoloredCount; ++iVisit) {
+            for (int iVisit=0; iVisit<static_cast<int>(uncoloredCount); ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
                 const bool needsExtension = !coloredMask[iVertex] && palettes[iVertex].palette.empty();
                 if (needsExtension) {
@@ -418,18 +422,19 @@ int color(TColor* pColors,
 }
 
 
-#define MCGS_INSTANTIATE_COLOR(TIndex, TValue, TColor)              \
-    template int color(TColor* pColors,                             \
-                       const CSRAdaptor<TIndex,TValue>& rMatrix,    \
-                       const ColorSettings<TValue> settings);
+#define MCGS_INSTANTIATE_COLOR(TIndex, TValue, TColor)                                 \
+    template MCGS_EXPORT_SYMBOL int color(TColor* pColors,                             \
+                                          const CSRAdaptor<TIndex,TValue>& rMatrix,    \
+                                          const ColorSettings<TValue> settings);
 
 MCGS_INSTANTIATE_COLOR(int, double, unsigned);
 MCGS_INSTANTIATE_COLOR(long, double, unsigned);
 MCGS_INSTANTIATE_COLOR(unsigned, double, unsigned);
-MCGS_INSTANTIATE_COLOR(std::size_t, double, unsigned);
-MCGS_INSTANTIATE_COLOR(std::size_t, double, std::size_t);
+MCGS_INSTANTIATE_COLOR(unsigned long, double, unsigned);
 
 #undef MCGS_INSTANTIATE_COLOR
+#undef MCGS_INTERNAL
+#include "undefineMacros.hpp"
 
 
 } // namespace mcgs
