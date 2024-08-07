@@ -1,10 +1,6 @@
 #pragma once
 
 
-/// @name mcgs
-/// @{
-
-
 /// @def MCGS_EXPORT_SYMBOL
 /// @brief Exposes the symbol in the shared object.
 #define MCGS_EXPORT_SYMBOL __attribute__((visibility ("default")))
@@ -319,7 +315,7 @@ int revertReorder(const TIndex rowCount, const TIndex columnCount, const TIndex 
                   const Partition<TIndex>* pPartition);
 
 
-/// @ref Compute the 2-norm of the residual of a linear system's approximate solution.
+/// @brief Compute the 2-norm of the residual of a linear system's approximate solution.
 ///
 /// @tparam TIndex Integer type of stored indices in the matrix (@p int, @p long, @p unsigned or @p std::size_t).
 /// @tparam TValue Number type of stored entries in the matrix (for now, only @p double is supported).
@@ -379,7 +375,7 @@ struct SolveSettings
 
     /// @brief Overrelaxation parameter.
     /// @note Defaults to @p 1.0.
-    /// @see <a href="https://en.wikipedia.org/wiki/Successive_over-relaxation">Successive Over-relaxation</>
+    /// @see <a href="https://en.wikipedia.org/wiki/Successive_over-relaxation">Successive Over-relaxation</a>
     TValue relaxation;
 
     /// @brief Parallelization strategy.
@@ -486,6 +482,3 @@ int solve(TValue* pSolution,
 
 
 #undef MCGS_EXPORT_SYMBOL
-
-
-/// @}
