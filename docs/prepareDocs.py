@@ -25,16 +25,19 @@ assetPath = rootPath + ".github/assets/"
 
 docLinkPattern = re.compile(r"\[mcgs::(\w+)\]\(([\w0-9\.#]+)\)")
 docLinkReplace = r"[mcgs::\1](" + docPath + r"\2)"
+
 assetLinkPattern = re.compile(r"\.github/assets/")
 assetLinkReplace = assetPath
+
+formulaPattern = re.compile(r"\$(.*)\$")
+formulaReplace = r"@f$\1@f$"
 
 readme = ""
 with open(pathlib.Path(__file__).absolute().parent.parent / "readme.md", "r") as inputFile:
     readme = inputFile.read()
 
+for pattern, replace in ((docLinkPattern, docLinkReplace), (assetLinkPattern, assetLinkReplace), (formulaPattern, formulaReplace)):
+    readme = re.sub(pattern, replace, readme)
+
 with open(pathlib.Path(__file__).parent / "readme.md", "w") as outputFile:
-    outputFile.write(re.sub(assetLinkPattern,
-                            assetLinkReplace,
-                            re.sub(docLinkPattern,
-                                   docLinkReplace,
-                                   readme)))
+    outputFile.write(readme)
