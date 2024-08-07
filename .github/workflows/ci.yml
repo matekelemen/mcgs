@@ -65,7 +65,6 @@ jobs:
         run: brew install llvm
       - name: Build
         run: |
-          export cxx="$(brew --prefix llvm)/bin/clang++"
           if [ "${{ matrix.sanitizer }}" = "none" ]; then
             ./build.sh -t "${{ matrix.type }}"
           else
