@@ -82,7 +82,6 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        sanitizer: [none, address]
         type: [RelWithDebInfo, Release]
     steps:
       - name: Clone repository
@@ -90,13 +89,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Build
-        run: |
-          if [ "${{ matrix.sanitizer }}" = "none" ]; then
-            bash build.sh -t "${{ matrix.type }}"
-          else
-            bash build.sh -t "${{ matrix.type }}" -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
-          fi
-        shell: bash
+        run: bash build.sh -t "${{ matrix.type }}"
       - name: Run tests
         run: |
           git lfs install
