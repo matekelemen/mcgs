@@ -2,7 +2,7 @@
 
 MCGS is a lightweight library for performing parallelized Gauss-Sidel smoothing, focusing on sparse systems with imbalanced topologies. Implementations for related tasks such as graph coloring and reordering are included as well.
 
-<p style="display: flex; text-align: center; justify-content: center;">
+<p style="display: flex; justify-content: center; align-items: center;">
 <img src=".github/assets/matrix.png" width=300/>
 <img src=".github/assets/right_arrow.png" width=100 style="object-fit: scale-down;">
 <img src=".github/assets/matrix_reordered.png" width=300/>
