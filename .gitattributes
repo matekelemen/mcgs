@@ -1,3 +1,4 @@
 test/input.tar.gz filter=lfs diff=lfs merge=lfs -text
 .github/assets/matrix.png filter=lfs diff=lfs merge=lfs -text
 .github/assets/matrix_reordered.png filter=lfs diff=lfs merge=lfs -text
+.github/assets/right_arrow.png filter=lfs diff=lfs merge=lfs -text
