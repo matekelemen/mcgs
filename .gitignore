@@ -20,6 +20,8 @@
 !src/partition.cpp
 !src/reorder.cpp
 !src/solve.cpp
+!src/defineMacros.hpp
+!src/undefineMacros.hpp
 
 !test
 !test/main.cpp
