@@ -84,25 +84,25 @@ jobs:
       matrix:
         sanitizer: [none, address]
         type: [RelWithDebInfo, Release]
-      steps:
-        - name: Clone repository
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-        - name: Build
-          run: |
-            if [ "${{ matrix.sanitizer }}" = "none" ]; then
-              bash build.sh -t "${{ matrix.type }}"
-            else
-              bash build.sh -t "${{ matrix.type }}" -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
-            fi
-          shell: bash
-        - name: Run tests
-          run: |
-            git lfs install
-            git lfs pull
-            bash test/testrunner.sh
-          shell: bash
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        run: |
+          if [ "${{ matrix.sanitizer }}" = "none" ]; then
+            bash build.sh -t "${{ matrix.type }}"
+          else
+            bash build.sh -t "${{ matrix.type }}" -o "-DCMAKE_CXX_FLAGS=-fsanitize=${{ matrix.sanitizer }}"
+          fi
+        shell: bash
+      - name: Run tests
+        run: |
+          git lfs install
+          git lfs pull
+          bash test/testrunner.sh
+        shell: bash
 
   generate-docs:
     runs-on: ubuntu-latest
