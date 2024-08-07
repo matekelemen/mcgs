@@ -1,3 +1,4 @@
 !.gitignore
 !doxyfile
 !doxygen-awesome.css
+!prepareDocs.py
