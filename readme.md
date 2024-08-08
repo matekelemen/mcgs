@@ -86,7 +86,7 @@ mcgs::destroyPartition(pReorderedPartition);
 
 ## Installation
 
-MCGS is written in C++ and uses CMake as a build system. Building produces a single shared library and matching header.
+MCGS is written in C++ and uses CMake as its build system. Building produces a single shared library and matching header.
 
 ### Build and Install
   ```bash
