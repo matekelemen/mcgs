@@ -255,7 +255,10 @@ void destroyPartition(Partition<TIndex>* pPartition);
 /// @param pColumnIndices Index array assigning column indices to each entry in @p pEntries.
 ///                       Size must be at least @p entryCount.
 /// @param pEntries Array of stored entries in the matrix. Size must be at least @p entryCount.
-/// @param pRHS Right hand side vector stored in a dense contiguous array. Size must be at least @p columnCount.
+/// @param pSolution Initial solution vector stored in a dense contiguous array. Size must be at least @p columnCount.
+///                  Pass @p nullptr if you don't want to reorder the initial solution vector.
+/// @param pRHS Right hand side vector stored in a dense contiguous array. Size must be at least @p rowCount.
+///             Pass @p nullptr if you don't want to reorder the right hand side vector.
 /// @param pPartition Pointer to the partition that encodes the coloring of the input matrix.
 ///
 /// @return a pointer to a contiguous partition of the reordered system if the reordering is successful,
@@ -267,12 +270,12 @@ void destroyPartition(Partition<TIndex>* pPartition);
 ///   (provided the reordering was successful).
 ///
 /// @see revertReorder(TValue*,const TIndex,const Partition*)
-/// @see revertReorder(const TIndex,const TIndex,const TIndex,TIndex*,TIndex*,TValue*,TValue*,const Partition*)
+/// @see revertReorder(const TIndex,const TIndex,const TIndex,TIndex*,TIndex*,TValue*,TValue*,TValue*,const Partition*)
 template <class TIndex, class TValue>
 MCGS_EXPORT_SYMBOL
 [[nodiscard]] Partition<TIndex>* reorder(const unsigned long rowCount, const unsigned long columnCount, const unsigned long entryCount,
                                          TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pEntries,
-                                         TValue* pRHS,
+                                         TValue* pSolution, TValue* pRHS,
                                          const Partition<TIndex>* pPartition);
 
 
@@ -287,7 +290,7 @@ MCGS_EXPORT_SYMBOL
 ///
 /// @return @ref MCGS_SUCCESS if successful, otherwise @ref MCGS_FAILURE.
 ///
-/// @fn revertReorder(TValue*,const TIndex,const Partition*)
+/// @fn revertReorder(TValue*,const unsigned long,const Partition*)
 template <class TIndex, class TValue>
 MCGS_EXPORT_SYMBOL
 int revertReorder(TValue* pRHS,
@@ -308,17 +311,20 @@ int revertReorder(TValue* pRHS,
 /// @param pColumnIndices Index array assigning column indices to each entry in @p pEntries.
 ///                       Size must be at least @p entryCount.
 /// @param pEntries Array of stored entries in the matrix. Size must be at least @p entryCount.
+/// @param pSolution Initial solution vector stored in a dense contiguous array. Size must be at least @p columnCount.
+///                  Pass @p nullptr if you don't want to reorder the initial solution vector.
 /// @param pRHS Right hand side vector stored in a dense contiguous array. Size must be at least @p rowCount.
+///             Pass @p nullptr if you don't want to reorder the right hand side vector.
 /// @param pPartition Pointer to the original @ref Partition the matrix and vector were reordered by.
 ///
 /// @return @ref MCGS_SUCCESS if successful, otherwise @ref MCGS_FAILURE.
 ///
-/// @fn revertReorder(const TIndex,const TIndex,const TIndex,TIndex*,TIndex*,TValue*,TValue*,const Partition*)
+/// @fn revertReorder(const unsigned long,const unsigned long,const unsigned long,TIndex*,TIndex*,TValue*,TValue*,TValue*,const Partition*)
 template <class TIndex, class TValue>
 MCGS_EXPORT_SYMBOL
 int revertReorder(const unsigned long rowCount, const unsigned long columnCount, const unsigned long entryCount,
                   TIndex* pRowExtents, TIndex* pColumnIndices, TValue* pEntries,
-                  TValue* pRHS,
+                  TValue* pSolution, TValue* pRHS,
                   const Partition<TIndex>* pPartition);
 
 
@@ -483,18 +489,6 @@ int solve(TValue* pSolution,
           const TValue* pRHS,
           const Partition<TIndex>* pPartition,
           const SolveSettings<TIndex,TValue> settings);
-
-
-#define MCGS_INSTANTIATE_COLOR(I,V,C)   \
-    extern template MCGS_EXPORT_SYMBOL int color<I,V,C>(C*,const CSRAdaptor<I,V>&,const ColorSettings<V>);
-
-
-MCGS_INSTANTIATE_COLOR(int, double, unsigned);
-MCGS_INSTANTIATE_COLOR(long, double, unsigned);
-MCGS_INSTANTIATE_COLOR(unsigned, double, unsigned);
-MCGS_INSTANTIATE_COLOR(unsigned long, double, unsigned);
-
-#undef MCGS_INSTANTIATE_COLOR
 
 
 } // namespace mcgs

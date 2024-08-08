@@ -21,10 +21,11 @@ for shrinkingFactor in 1 8 64 256; do
         for case in mok_structure mok_fluid; do
             echo "Running $case on $threadCount threads with $shrinkingFactor shrinking ..."
             export OMP_NUM_THREADS=$threadCount
-            if ! build/bin/${1}mcgs_testrunner            \
-                    test/${case}.mm test/${case}_rhs.mm   \
-                    -s $shrinkingFactor                   \
-                    -i 1e2
+            if ! build/bin/${1}mcgs_testrunner          \
+                    test/${case}.mm test/${case}_rhs.mm \
+                    -s $shrinkingFactor                 \
+                    -i 1e2                              \
+                    -o reordered.mm
                 then exit 1
             fi
         done

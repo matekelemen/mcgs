@@ -347,7 +347,7 @@ int main(int argc, const char* const * argv)
         std::vector<double> dummy = vector;
         auto pDummy = mcgs::reorder(reorderedMatrix.rowCount, reorderedMatrix.columnCount, reorderedMatrix.entryCount,
                                     reorderedMatrix.rowExtents.data(), reorderedMatrix.columnIndices.data(), reorderedMatrix.entries.data(),
-                                    dummy.data(),
+                                    static_cast<double*>(nullptr), dummy.data(),
                                     pPartition);
         mcgs::destroyPartition(pDummy);
 
@@ -395,7 +395,7 @@ int main(int argc, const char* const * argv)
         MCGS_SCOPED_TIMER("reordering");
         pReorderedPartition = mcgs::reorder(matrix.rowCount, matrix.columnCount, matrix.entryCount,
                                             matrix.rowExtents.data(), matrix.columnIndices.data(), matrix.entries.data(),
-                                            vector.data(),
+                                            solution.data(), vector.data(),
                                             pPartition);
         if (!pReorderedPartition) {
             std::cerr << "reordering failed\n";
@@ -444,7 +444,7 @@ int main(int argc, const char* const * argv)
         MCGS_SCOPED_TIMER("undo reordering");
         bool success = mcgs::revertReorder(matrix.rowCount, matrix.columnCount, matrix.entryCount,
                                            matrix.rowExtents.data(), matrix.columnIndices.data(), matrix.entries.data(),
-                                           vector.data(),
+                                           static_cast<double*>(nullptr), vector.data(),
                                            pPartition) == MCGS_SUCCESS;
         success &= mcgs::revertReorder(solution.data(), solution.size(), pPartition) == MCGS_SUCCESS;
 

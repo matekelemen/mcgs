@@ -23,9 +23,9 @@ Typical workflow
 - construct and adaptor for $A$ (see [mcgs::CSRAdaptor](structmcgs_1_1CSRAdaptor.html))
 - compute a coloring of $A$ (see [mcgs::color](namespacemcgs.html#ad660f970843b8c8edea18c6e9291f6e5))
 - construct a partition of $A$ with respect to the coloring (see [mcgs::makePartition](namespacemcgs.html#adbeb4189f3eadcb713e803cf94aa38cf))
-- reorder the system with respect to the coloring (see [mcgs::reorder](namespacemcgs.html#a036dc0fa0b11d8adb71427d78ac7b7ad))
+- reorder the system with respect to the coloring (see [mcgs::reorder](namespacemcgs.html#a5291808c16a69190ac0bb31a1f3ee81d))
 - perform Gauss-Seidel iterations **using the reordered partition** (see [mcgs::solve](namespacemcgs.html#ae862fac411e001950f012872f6ac7e0c))
-- *optional: restore the original order of your system* (see [mcgs::revertReorder](namespacemcgs.html#aa1175b9934a8890204c6be445ea4407e))
+- *optional: restore the original order of your system* (see [mcgs::revertReorder](namespacemcgs.html#aa5b1a78cfa8d230b2100320dde50f3c7))
 - deallocate partitions (see [mcgs::destroyPartition](namespacemcgs.html#ad619ded9f67d8a9f379ad7e4b759d854))
 
 
