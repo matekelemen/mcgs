@@ -186,9 +186,6 @@ void print(const mcgs::CSRAdaptor<mcgs::TestCSRMatrix::Index,mcgs::TestCSRMatrix
     rStream << "%%MatrixMarket matrix coordinate real general\n";
     rStream << rMatrix.rowCount << " " << rMatrix.columnCount << " " << rMatrix.entryCount << "\n";
 
-    //std::vector<unsigned> reorderedColors(pColors, pColors + rMatrix.rowCount);
-    //std::sort(reorderedColors.begin(), reorderedColors.end());
-
     for (std::size_t iRow=0; iRow<rMatrix.rowCount; ++iRow) {
         const std::size_t iRowBegin = rMatrix.pRowExtents[iRow];
         const std::size_t iRowEnd = rMatrix.pRowExtents[iRow + 1];
