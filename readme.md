@@ -80,9 +80,10 @@ mcgs::destroyPartition(pReorderedPartition);
 
 ## Requirements
 
-- C++ compiler with full C++17 support (GCC or Clang are tested)
+- C++ compiler with full C++17 support (GCC, Clang and MSVC are tested)
 - CMake version 3.15 or later
 - [optional] OpenMP 2.0 or later for shared memory parallelization
+- Linux, MacOS or Windows
 
 ## Installation
 
