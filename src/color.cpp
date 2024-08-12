@@ -92,7 +92,21 @@ std::vector<NeighborSet<TIndex>> collectNeighbors(const CSRAdaptor<TIndex,TValue
 }
 
 
-using Mask = std::vector<char>;
+//using ColorStatus = char;
+//constexpr ColorStatus MCGS_COLOR_PENDING = 0;
+//constexpr ColorStatus MCGS_COLOR_FROZEN  = 1;
+//constexpr ColorStatus MCGS_COLOR_INVALID = 2;
+enum class ColorStatus
+{
+    Pending = 0,
+    Frozen  = 1,
+    Invalid = 2
+};
+constexpr ColorStatus MCGS_COLOR_PENDING = ColorStatus::Pending;
+constexpr ColorStatus MCGS_COLOR_FROZEN  = ColorStatus::Frozen;
+[[maybe_unused]] constexpr ColorStatus MCGS_COLOR_INVALID = ColorStatus::Invalid;
+
+using Mask = std::vector<ColorStatus>;
 
 
 template <class TIndex, class TColor>
@@ -114,7 +128,7 @@ bool isColored(const TIndex iVertex,
                 // it's in conflict with => give up on this vertex.
                 colored = false;
                 break;
-            } else if (rColoredMask[iNeighbor]) {
+            } else if (rColoredMask[iNeighbor] == MCGS_COLOR_FROZEN) {
                 // Although the current vertex would win a tiebreaker against
                 // its neighbor it's in conflict with, the neighbor's color is
                 // already set and cannot be changed => give up on this vertex.
@@ -171,6 +185,17 @@ void removeFromPalette(const TColor color,
 }
 
 
+template <class TIndex>
+void removeFromNeighbors(const TIndex iVertex,
+                         NeighborSet<TIndex>& rNeighbors)
+{
+    const auto [itBegin, itEnd] = std::equal_range(rNeighbors.begin(),
+                                                   rNeighbors.end(),
+                                                   iVertex);
+    rNeighbors.erase(itBegin, itEnd);
+}
+
+
 template <class TIndex, class TValue, class TColor>
 MCGS_EXPORT_SYMBOL
 int color(TColor* pColors,
@@ -224,7 +249,7 @@ int color(TColor* pColors,
 
     // Collect all edges of the graph
     // (symmetric version of the input matrix)
-    const auto neighbors = collectNeighbors(rMatrix, settings, mutexes);
+    auto neighbors = collectNeighbors(rMatrix, settings, mutexes);
 
     // Find the minimum and maximum vertex degrees.
     TIndex minDegree = std::numeric_limits<TIndex>::max();
@@ -272,7 +297,7 @@ int color(TColor* pColors,
     } // for iVertex in range(columnCount)
 
     // Track vertices that need to be colored.
-    Mask coloredMask(rMatrix.columnCount, false);
+    Mask coloredMask(rMatrix.columnCount, MCGS_COLOR_PENDING);
     std::vector<TIndex> uncolored(rMatrix.rowCount);
     std::iota(uncolored.begin(), uncolored.end(), TIndex(0));
 
@@ -350,15 +375,20 @@ int color(TColor* pColors,
                 // its color from the palettes of its neighbors.
                 if (colored) {
                     MCGS_ACQUIRE_MUTEX(mutexes[iVertex]);
-                    coloredMask[iVertex] = true;
+                    coloredMask[iVertex] = MCGS_COLOR_FROZEN;
                     palettes[iVertex].palette = std::vector<TColor> {};
+                    neighbors[iVertex] = NeighborSet<TIndex> {};
                     MCGS_RELEASE_MUTEX(mutexes[iVertex]);
 
 
                     for (TIndex iNeighbor : neighbors[iVertex]) {
-                        if (!coloredMask[iNeighbor]) {
+                        if (coloredMask[iNeighbor] != MCGS_COLOR_FROZEN) {
                             MCGS_ACQUIRE_MUTEX(mutexes[iNeighbor]);
                             removeFromPalette(pColors[iVertex], palettes[iNeighbor]);
+
+                            if (pColors[iVertex] <= palettes[iNeighbor].maxColor) {
+                                removeFromNeighbors(iVertex, neighbors[iNeighbor]);
+                            }
                             MCGS_RELEASE_MUTEX(mutexes[iNeighbor]);
                         } // if !coloredMask[iNeighbor]
                     } // for iNeighbor in neighbors[iVertex]
@@ -370,7 +400,8 @@ int color(TColor* pColors,
             #endif
             for (int iVisit=0; iVisit<static_cast<int>(uncoloredCount); ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
-                const bool needsExtension = !coloredMask[iVertex] && palettes[iVertex].palette.empty();
+                const bool needsExtension = coloredMask[iVertex] != MCGS_COLOR_FROZEN
+                                            && palettes[iVertex].palette.empty();
                 if (needsExtension) {
                     TColor extension = palettes[iVertex].maxColor + 1;
                     extendPalette(palettes[iVertex], extension);
@@ -385,7 +416,7 @@ int color(TColor* pColors,
 
             for (TIndex iVisit=0; iVisit<static_cast<TIndex>(uncolored.size()); ++iVisit) {
                 const TIndex iVertex = uncolored[iVisit];
-                if (!coloredMask[iVertex]) swap.push_back(iVertex);
+                if (coloredMask[iVertex] != MCGS_COLOR_FROZEN) swap.push_back(iVertex);
             }
 
             uncolored.swap(swap);
