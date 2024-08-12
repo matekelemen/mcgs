@@ -1,3 +1,4 @@
 !.gitignore
 !input.tar.gz
 !testrunner.sh
+!cli.cpp

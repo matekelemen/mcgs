@@ -56,11 +56,21 @@ endif()
 
 # Define testrunner
 if (${${PROJECT_NAME_UPPER}_BUILD_TESTS})
-    add_executable(${PROJECT_NAME}_testrunner
+    add_executable(${PROJECT_NAME}_testrunner)
+    add_executable(${PROJECT_NAME}cli)
+
+    target_sources(${PROJECT_NAME}_testrunner PRIVATE
                    "${CMAKE_CURRENT_SOURCE_DIR}/test/main.cpp"
                    "${CMAKE_CURRENT_SOURCE_DIR}/test/parseMatrixMarket.cpp")
     target_link_libraries(${PROJECT_NAME}_testrunner PRIVATE ${PROJECT_NAME})
     set_target_properties(${PROJECT_NAME}_testrunner PROPERTIES
+                          RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+    target_sources(${PROJECT_NAME}cli PRIVATE
+                   "${CMAKE_CURRENT_SOURCE_DIR}/test/cli.cpp"
+                   "${CMAKE_CURRENT_SOURCE_DIR}/test/parseMatrixMarket.cpp")
+    target_link_libraries(${PROJECT_NAME}cli PRIVATE ${PROJECT_NAME})
+    set_target_properties(${PROJECT_NAME}cli PROPERTIES
                           RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 endif()
 
