@@ -143,17 +143,14 @@ struct Palette
 
 
 template <class TColor>
-void extendPalette(Palette<TColor>& rPalette, const TColor color)
+void extendPalette(Palette<TColor>& rPalette, TColor increments)
 {
-    rPalette.palette.push_back(color);
-    rPalette.maxColor = std::max(color, rPalette.maxColor);
-}
-
-
-template <class TColor>
-void extendPalette(Palette<TColor>& rPalette)
-{
-    extendPalette(rPalette, rPalette.maxColor + 1);
+    increments += 1;
+    const TColor maxColor = rPalette.maxColor;
+    for (TColor increment=1; increment<increments; ++increment) {
+        rPalette.palette.push_back(maxColor + increment);
+    }
+    rPalette.maxColor += increments;
 }
 
 
@@ -372,8 +369,9 @@ int color(TColor* pColors,
                 const TIndex iVertex = uncolored[iVisit];
                 const bool needsExtension = !coloredMask[iVertex] && palettes[iVertex].palette.empty();
                 if (needsExtension) {
-                    TColor extension = palettes[iVertex].maxColor + 1;
-                    extendPalette(palettes[iVertex], extension);
+                    // @todo decide how many colors to extend empty palettes by
+                    constexpr TColor extensionCount = 1;
+                    extendPalette(palettes[iVertex], extensionCount);
                 } // if needsExtension
             } // for iVisit in range(uncoloredCount)
         } // omp parallel
@@ -392,24 +390,22 @@ int color(TColor* pColors,
         }
 
         if (static_cast<TIndex>(uncolored.size()) == uncoloredCount) {
-            // Failed to color any vertices => extend the palette of some random vertices
-            const TIndex maxExtensions = std::max(TIndex(1), TIndex(25 * uncolored.size() / 100));
-            TIndex extensionCounter = 0;
-
-            // @todo parallelize
-            for (TIndex iUncolored=0; iUncolored<static_cast<TIndex>(uncolored.size()) && extensionCounter < maxExtensions; ++iUncolored) {
-                extendPalette(palettes[uncolored[iUncolored]]);
-                ++extensionCounter;
+            // Failed to color any vertices.
+            ++stallCounter;
+            if (0 <= settings.maxStallCount && settings.maxStallCount <= stallCounter) {
+                if (1 <= settings.verbosity) std::cerr << "mcgs: error: reached stall limit (" << settings.maxStallCount << ")\n";
+                return MCGS_FAILURE;
             }
 
-            if (!extensionCounter) {
-                ++stallCounter;
-                if (0 <= settings.maxStallCount && settings.maxStallCount <= stallCounter) {
-                    if (1 <= settings.verbosity) std::cerr << "mcgs: error: reached stall limit (" << settings.maxStallCount << ")\n";
-                    return MCGS_FAILURE;
-                }
-            } else {
-                stallCounter = 0;
+            // Extend the palette of some random vertices.
+            const std::size_t maxExtensions = std::max(1ul, 25 * uncolored.size() / 100);
+
+            // @todo parallelize
+            // @todo decide how many colors to extend palettes by
+            constexpr TColor extensionCount = 1;
+
+            for (std::size_t iExtension=0; iExtension<maxExtensions; ++iExtension) {
+                extendPalette(palettes[uncolored[iExtension % uncolored.size()]], extensionCount);
             }
         } else {
             stallCounter = 0;
