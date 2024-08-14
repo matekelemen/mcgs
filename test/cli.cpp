@@ -21,7 +21,8 @@ const std::unordered_map<std::string,std::string> defaultArguments {
     {"-m", ""},
     {"-v", ""},
     {"-M", ""},
-    {"-V", ""}
+    {"-V", ""},
+    {"-s", "16"}
 };
 
 
@@ -31,6 +32,7 @@ struct Arguments
     std::filesystem::path vectorInputPath;
     std::optional<std::filesystem::path> matrixOutputPath;
     std::optional<std::filesystem::path> vectorOutputPath;
+    int shrinkingFactor;
 }; // struct Arguments
 
 
@@ -133,11 +135,11 @@ Arguments parseArguments(int argc, char const* const* argv)
             if (itArgument == argMap.end()) {
                 if ((itArgument = argMap.find(arg)) == argMap.end()) {
                     // The provided key does not exist in the argument map
-                    throw InvalidArgument("Error: unrecognized option: " + arg + "\n");
+                    throw InvalidArgument("mcgscli: error: unrecognized option: " + arg + "\n");
                 }
             } else {
                 // No value was provided for the last key
-                throw InvalidArgument("Error: missing argument for option " + itArgument->first + "\n");
+                throw InvalidArgument("mcgscli: error: missing argument for option " + itArgument->first + "\n");
             } // else (itArgument == argMap.end())
         } else {
             // Parse a value
@@ -149,7 +151,7 @@ Arguments parseArguments(int argc, char const* const* argv)
                 itArgument = argMap.end();
             } else {
                 // No key was provided for this value
-                throw InvalidArgument("Error: missing option for argument " + arg + "\n");
+                throw InvalidArgument("mcgscli: error: missing option for argument " + arg + "\n");
             } // else (itArgument != argMap.end())
         } // else (!arg.empty() && arg.front() == '-')
     } // while (iArg < argc)
@@ -157,10 +159,10 @@ Arguments parseArguments(int argc, char const* const* argv)
     // If the arg iterator was not reset, a value
     // was not provided for the last key.
     if (itArgument != argMap.end()) {
-        throw InvalidArgument("Error: missing argument for option " + itArgument->first + "\n");
+        throw InvalidArgument("mcgscli: error: missing argument for option " + itArgument->first + "\n");
     }
 
-    // Parse required arguments
+    // Parse required arguments.
     using PathString = std::filesystem::path::string_type;
 
     arguments.matrixInputPath = PathString(argMap["-m"]);
@@ -169,15 +171,31 @@ Arguments parseArguments(int argc, char const* const* argv)
     arguments.vectorInputPath = PathString(argMap["-v"]);
     validateInputPath(arguments.vectorInputPath, "-v");
 
-    // Parse optional output arguments
+    // Parse optional output arguments.
+    // Reordered left hand side matrix output path.
     if (!argMap["-M"].empty()) {
         arguments.matrixOutputPath.emplace(PathString(argMap["-M"]));
         validateOutputPath(arguments.matrixOutputPath.value(), "-M", true);
     }
 
+    // Reordered right hand side vector output path.
     if (!argMap["-V"].empty()) {
         arguments.vectorOutputPath.emplace(PathString(argMap["-V"]));
         validateOutputPath(arguments.vectorOutputPath.value(), "-V", true);
+    }
+
+    // Shrinking factor.
+    {
+        std::stringstream stream;
+        stream << argMap["-s"];
+        try {
+            stream >> arguments.shrinkingFactor;
+        } catch (std::exception& rException) {
+            stream.clear();
+            stream << "mcgscli: error: invalid argument for option '-s': ";
+            stream << argMap["-s"];
+            throw InvalidArgument(stream.str());
+        }
     }
 
     return arguments;
@@ -253,7 +271,7 @@ int main(int argCount, char const* const* argValues)
     // Color
     std::vector<unsigned> colors(matrix.rowCount, std::numeric_limits<unsigned>::max());
     mcgs::ColorSettings<mcgs::TestCSRMatrix::Value> colorSettings;
-    colorSettings.shrinkingFactor   = 256;
+    colorSettings.shrinkingFactor   = arguments.shrinkingFactor;
     colorSettings.maxStallCount     = 1e3;
     colorSettings.tolerance         = std::numeric_limits<mcgs::TestCSRMatrix::Value>::min();
     colorSettings.verbosity         = 1;
