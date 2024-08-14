@@ -6,7 +6,6 @@
 #include "defineMacros.hpp" // MCGS_EXPORT_SYMBOL
 
 // --- STL Includes ---
-#include <cstddef> // std::size_t
 #include <vector> // std::vector
 #include <unordered_map> // std::unordered_map
 #include <algorithm> // std::copy, std::is_sorted
