@@ -26,13 +26,13 @@ Partition<TIndex>::Partition(const TColor* pColors, const TIndex rowCount)
         std::vector<TIndex>
     > partitionMap;
 
-    for (TIndex iColumn=0; iColumn<rowCount; ++iColumn) {
-        const TColor color = pColors[iColumn];
+    for (TIndex iRow=0; iRow<rowCount; ++iRow) {
+        const TColor color = pColors[iRow];
         partitionMap.emplace(color, std::vector<TIndex> {}) // <== make sure an entry is mapped to color
             .first                                          // <== iterator pointing to the entry
             ->second                                        // <== reference to the mapped vector
-            .push_back(iColumn);                            // <== insert the column index into the mapped vector
-    } // for iColumn in range(rowCount)
+            .push_back(iRow);                               // <== insert the row index into the mapped vector
+    } // for iRow in range(rowCount)
 
     _rowIndices.resize(rowCount + 1);
     _partitionExtents.resize(partitionMap.size() + 1);
