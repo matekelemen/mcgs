@@ -242,13 +242,13 @@ int dispatchSweep(TValue* pSolution,
                             threadCount);
     } /*if settings.parallelization == RowWise*/ else if (settings.parallelization == Parallelization::EntryWise) {
         return entrywiseSweep(pSolution,
-                                pSolutionBuffer,
-                                rMatrix,
-                                pRHS,
-                                settings,
-                                iRowBegin,
-                                iRowEnd,
-                                threadCount);
+                              pSolutionBuffer,
+                              rMatrix,
+                              pRHS,
+                              settings,
+                              iRowBegin,
+                              iRowEnd,
+                              threadCount);
     } /*if settings.parallelization == Parallelization::EntryWise*/ else if (settings.parallelization == Parallelization::None) {
         return sweep(pSolution,
                      rMatrix,
@@ -256,7 +256,7 @@ int dispatchSweep(TValue* pSolution,
                      iRowBegin,
                      iRowEnd,
                      settings);
-    } // /*if settings.parallelization == Parallelization::None*/
+    } /*if settings.parallelization == Parallelization::None*/
 
     return MCGS_SUCCESS;
 }
