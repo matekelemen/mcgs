@@ -155,8 +155,6 @@ int entrywiseSweep(TValue* pSolution,
     #pragma omp parallel num_threads(threadCount)
     #endif
     {
-        std::vector<TValue> localUpdates(partitionRowCount, static_cast<TValue>(0));
-
         #ifdef MCGS_OPENMP
         const TIndex iThread = omp_get_thread_num();
         #else
@@ -166,16 +164,27 @@ int entrywiseSweep(TValue* pSolution,
         const TIndex iLocalEntryBegin = threadEntryExtents[iThread];
         const TIndex iLocalEntryEnd = threadEntryExtents[iThread + 1];
 
+        // Find which row the first assigned entry belongs to.
         const auto itLocalEntryBegin = std::max(std::upper_bound(itEntryBegin, itEntryEnd, iLocalEntryBegin) - 1,
                                                 itEntryBegin);
-        TIndex iRow = std::distance(rMatrix.pRowExtents, itLocalEntryBegin);
-        TIndex iLocalRow = iRow - iRowBegin;
-        const TIndex* itRowEnd = rMatrix.pRowExtents + iRow + 1;
 
+        // Find which row the last assigned entry belongs to.
+        const auto itLocalEntryEnd = std::upper_bound(itLocalEntryBegin, itEntryEnd, iLocalEntryEnd);
+        std::vector<TValue> localUpdates(std::distance(itLocalEntryBegin, itLocalEntryEnd),
+                                         static_cast<TValue>(0));
+
+        // Initialize row indices in all spaces.
+        TIndex iRow = std::distance(rMatrix.pRowExtents, itLocalEntryBegin);    // <== row index in global space
+        const TIndex* itRowEnd = rMatrix.pRowExtents + iRow + 1;                // <== end row index in global space
+        TIndex iLocalRow = iRow - iRowBegin;                                    // <== row index in function space
+        TIndex iThreadLocalRow = 0;                                             // <== row index in thread space
+
+        // Thread-local entrywise sweep.
         for (TIndex iEntry=iLocalEntryBegin; iEntry<iLocalEntryEnd; ++iEntry) {
             while (*itRowEnd <= iEntry) {
                 ++iRow;
                 ++iLocalRow;
+                ++iThreadLocalRow;
                 ++itRowEnd;
             }
 
@@ -183,22 +192,25 @@ int entrywiseSweep(TValue* pSolution,
             const TValue nonzero = rMatrix.pEntries[iEntry];
 
             if (iColumn < iRow) {
-                localUpdates[iLocalRow] -= nonzero * pSolution[iColumn];
+                localUpdates[iThreadLocalRow] -= nonzero * pSolution[iColumn];
             } else if (iRow < iColumn) {
-                localUpdates[iLocalRow] -= nonzero * pSolutionBuffer[iColumn];
+                localUpdates[iThreadLocalRow] -= nonzero * pSolutionBuffer[iColumn];
             } else {
                 diagonals[iLocalRow] = nonzero;
             }
         } // for iEntry in range(iLocalEntryBegin, iLocalEntryEnd)
 
-        #ifdef MCGS_OPENMP
-        #pragma omp critical
-        #endif
         {
-            for (TIndex iLocal=0; iLocal<static_cast<TIndex>(updates.size()); ++iLocal) {
-                updates[iLocal] += localUpdates[iLocal];
-            }
-        } // omp critical
+            TIndex iUpdateRow = std::distance(rMatrix.pRowExtents, itLocalEntryBegin) - iRowBegin;
+            #ifdef MCGS_OPENMP
+            #pragma omp critical
+            #endif
+            {
+                for (const TValue localUpdate : localUpdates) {
+                    updates[iUpdateRow++] += localUpdate;
+                }
+            } // omp critical
+        }
 
         #ifdef MCGS_OPENMP
         #pragma omp barrier
@@ -259,7 +271,8 @@ int dispatchSweep(TValue* pSolution,
                      settings);
     } /*if settings.parallelization == Parallelization::None*/
 
-    return MCGS_SUCCESS;
+    // Unhandled parallelization.
+    return MCGS_FAILURE;
 }
 
 
