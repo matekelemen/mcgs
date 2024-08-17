@@ -199,15 +199,16 @@ int entrywiseSweep(TValue* pSolution,
                 updates[iLocal] += localUpdates[iLocal];
             }
         } // omp critical
-    } // omp parallel
 
-    #ifdef MCGS_OPENMP
-    #pragma omp parallel for num_threads(threadCount)
-    #endif
-    for (int iRow=iRowBegin; iRow<static_cast<int>(iRowEnd); ++iRow) {
-        const TIndex iLocalRow = iRow - iRowBegin;
-        pSolution[iRow] += settings.relaxation * (updates[iLocalRow] / diagonals[iLocalRow] - pSolution[iRow]);
-    }
+        #ifdef MCGS_OPENMP
+        #pragma omp barrier
+        #pragma omp for
+        #endif
+        for (int iRow=iRowBegin; iRow<static_cast<int>(iRowEnd); ++iRow) {
+            const TIndex iLocalRow = iRow - iRowBegin;
+            pSolution[iRow] += settings.relaxation * (updates[iLocalRow] / diagonals[iLocalRow] - pSolution[iRow]);
+        }
+    } // omp parallel
 
     return MCGS_SUCCESS;
 }
