@@ -165,22 +165,22 @@ Arguments parseArguments(int argc, char const* const* argv)
     // Parse required arguments.
     using PathString = std::filesystem::path::string_type;
 
-    arguments.matrixInputPath = PathString(argMap["-m"]);
+    arguments.matrixInputPath = PathString(argMap["-m"].begin(), argMap["-m"].end());
     validateInputPath(arguments.matrixInputPath, "-m");
 
-    arguments.vectorInputPath = PathString(argMap["-v"]);
+    arguments.vectorInputPath = PathString(argMap["-v"].begin(), argMap["-v"].end());
     validateInputPath(arguments.vectorInputPath, "-v");
 
     // Parse optional output arguments.
     // Reordered left hand side matrix output path.
     if (!argMap["-M"].empty()) {
-        arguments.matrixOutputPath.emplace(PathString(argMap["-M"]));
+        arguments.matrixOutputPath.emplace(PathString(argMap["-M"].begin(), argMap["-M"].end()));
         validateOutputPath(arguments.matrixOutputPath.value(), "-M", true);
     }
 
     // Reordered right hand side vector output path.
     if (!argMap["-V"].empty()) {
-        arguments.vectorOutputPath.emplace(PathString(argMap["-V"]));
+        arguments.vectorOutputPath.emplace(PathString(argMap["-V"].begin(), argMap["-V"].end()));
         validateOutputPath(arguments.vectorOutputPath.value(), "-V", true);
     }
 
