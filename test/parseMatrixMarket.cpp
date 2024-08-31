@@ -131,18 +131,22 @@ std::variant<
     }
 
     // Parse number of entries
-    rStream >> entries;
-    if (rStream.fail()) {
-        throw std::runtime_error("Error: failed to parse the number of entries in the input matrix\n");
-    } else if (entries < 0ll) {
-        throw std::runtime_error("Error: negative number of entries in input");
+    if (std::get_if<TestCSRMatrix>(&output)) {
+        rStream >> entries;
+        if (rStream.fail()) {
+            throw std::runtime_error("Error: failed to parse the number of entries in the input matrix\n");
+        } else if (entries < 0ll) {
+            throw std::runtime_error("Error: negative number of entries in input");
+        } else {
+            std::visit([entries](auto& rVariant){
+                    using Value = std::remove_reference_t<decltype(rVariant)>;
+                    if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
+                        rVariant.entryCount = entries;
+                    }
+                }, output);
+        }
     } else {
-        std::visit([entries](auto& rVariant){
-                using Value = std::remove_reference_t<decltype(rVariant)>;
-                if constexpr (std::is_same_v<Value,TestCSRMatrix>) {
-                    rVariant.entryCount = entries;
-                }
-            }, output);
+        rStream.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     }
 
     // Ignore the rest of the line
