@@ -398,7 +398,7 @@ int color(TColor* pColors,
             }
 
             // Extend the palette of some random vertices.
-            const std::size_t maxExtensions = std::max(1ul, unsigned long(25 * uncolored.size() / 100));
+            const std::size_t maxExtensions = std::max(1ul, (unsigned long)(25 * uncolored.size() / 100));
 
             // @todo parallelize
             // @todo decide how many colors to extend palettes by
