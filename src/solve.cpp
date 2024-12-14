@@ -11,7 +11,6 @@
 #include "defineMacros.hpp" // MCGS_EXPORT_SYMBOL
 
 // --- STL Includes ---
-#include <cstddef> // std::size_t
 #include <vector> // std::vector
 #include <algorithm> // std::copy, std::clamp
 #include <cmath> // std::sqrt
